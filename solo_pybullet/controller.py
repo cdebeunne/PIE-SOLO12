@@ -25,12 +25,6 @@ def c(q, qdot, dt):
     qa_ref = np.zeros((8, 1))  # target angular positions for the motors
     qa_dot_ref = np.zeros((8, 1))  # target angular velocities for the motors
 
-    ###############################################
-
-    # Insert code here to set qa_ref and qa_dot_ref
-
-    ###############################################
-
     # Parameters for the PD controller
     Kp = 8.
     Kd = 0.06
@@ -136,20 +130,20 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
     oR_HR = solo.data.oMf[ID_HR].rotation
 
     # Getting the different Jacobians
-    fJ_FL3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_FL)[:3, -8:]  # Take only the translation terms
-    oJ_FL3 = oR_FL * fJ_FL3  # Transformation from local frame to world frame
+    fJ_FL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FL)[:3, -8:]  # Take only the translation terms
+    oJ_FL3 = oR_FL.dot(fJ_FL3)  # Transformation from local frame to world frame
     oJ_FLxz = oJ_FL3[0::2, -8:]  # Take the x and z components
 
-    fJ_FR3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_FR)[:3, -8:]
-    oJ_FR3 = oR_FR * fJ_FR3
+    fJ_FR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FR)[:3, -8:]
+    oJ_FR3 = oR_FR.dot(fJ_FR3)
     oJ_FRxz = oJ_FR3[0::2, -8:]
 
-    fJ_HL3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_HL)[:3, -8:]
-    oJ_HL3 = oR_HL * fJ_HL3
+    fJ_HL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HL)[:3, -8:]
+    oJ_HL3 = oR_HL.dot(fJ_HL3)
     oJ_HLxz = oJ_HL3[0::2, -8:]
 
-    fJ_HR3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_HR)[:3, -8:]
-    oJ_HR3 = oR_HR * fJ_HR3
+    fJ_HR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HR)[:3, -8:]
+    oJ_HR3 = oR_HR.dot(fJ_HR3)
     oJ_HRxz = oJ_HR3[0::2, -8:]
 
     # Displacement error
@@ -159,12 +153,14 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
     J = np.vstack([oJ_FLxz, oJ_FRxz, oJ_HLxz, oJ_HRxz])
 
     # Computing the velocity
-    qa_dot_ref = -K * pinv(J) * nu
+    qa_dot_ref = -K * pinv(J) * nu[:,1]
     q_dot_ref = np.concatenate((np.zeros([6, 1]), qa_dot_ref))
 
     # Computing the updated configuration
     q_ref = pin.integrate(solo.model, q_ref, q_dot_ref * dt)
-    qa_ref = q_ref[7:]
+    qa_ref = q_ref[7:].reshape(8,1)
+    print(qa_ref)
+  
 
     # DONT FORGET TO RUN GEPETTO-GUI BEFORE RUNNING THIS PROGRAMM #
     solo.display(q)  # display the robot in the viewer Gepetto-GUI given its configuration q
@@ -275,19 +271,19 @@ def c_walking_ID(q, qdot, dt, solo, t_simu):
     oR_HR = solo.data.oMf[ID_HR].rotation
 
     # Getting the different Jacobians
-    fJ_FL3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_FL)[:3, -8:]  #Take only the translation terms
+    fJ_FL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FL)[:3, -8:]  #Take only the translation terms
     oJ_FL3 = oR_FL * fJ_FL3  #Transformation from local frame to world frame
     oJ_FLxz = oJ_FL3[0::2, -8:]  #Take the x and z components
 
-    fJ_FR3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_FR)[:3, -8:]
+    fJ_FR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FR)[:3, -8:]
     oJ_FR3 = oR_FR * fJ_FR3
     oJ_FRxz = oJ_FR3[0::2, -8:]
 
-    fJ_HL3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_HL)[:3, -8:]
+    fJ_HL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HL)[:3, -8:]
     oJ_HL3 = oR_HL * fJ_HL3
     oJ_HLxz = oJ_HL3[0::2, -8:]
 
-    fJ_HR3 = pin.frameJacobian(solo.model, solo.data, q_ref, ID_HR)[:3, -8:]
+    fJ_HR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HR)[:3, -8:]
     oJ_HR3 = oR_HR * fJ_HR3
     oJ_HRxz = oJ_HR3[0::2, -8:]
 

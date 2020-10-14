@@ -8,7 +8,7 @@ import time
 
 import pybullet as p  # PyBullet simulator
 
-from .controller import c_walking_IK  # Controller functions
+from .controller import c  # Controller functions
 # Functions to initialize the simulation and retrieve joints positions/velocities
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
@@ -37,7 +37,7 @@ for i in range(10000):  # run the simulation during dt * i_max seconds (simulati
     q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
     # Call controller to get torques for all joints
-    jointTorques = c_walking_IK(q, qdot, dt, solo, i * dt)
+    jointTorques = c(q, qdot, dt)
 
     # Set control torques for all joints in PyBullet
     p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
