@@ -13,10 +13,10 @@ from .PD import PD
 def stand(q, qdot, dt):
     qa = q[7:]
     qa_dot = qdot[6:]
-    qa_ref = np.zeros((8, 1))  # target angular positions for the motors
-    qa_dot_ref = np.zeros((8, 1))  # target angular velocities for the motors
+    qa_ref = np.zeros((12, 1))  # target angular positions for the motors
+    qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
     torque_sat = 3  # torque saturation in N.m
-    torques_ref = np.zeros((8, 1))  # feedforward torques
+    torques_ref = np.zeros((12, 1))  # feedforward torques
     torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 1, 1, torque_sat, torques_ref)
     return torques
 

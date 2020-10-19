@@ -32,7 +32,7 @@ def configure_simulation(dt, enableGUI):
     robotStartPos = [0, 0, 0.35]
     robotStartOrientation = p.getQuaternionFromEuler([0, 0, 0])
     p.setAdditionalSearchPath("/opt/openrobots/share/example-robot-data/robots/solo_description/robots")
-    robotId = p.loadURDF("solo.urdf", robotStartPos, robotStartOrientation)
+    robotId = p.loadURDF("solo12.urdf", robotStartPos, robotStartOrientation)
 
     # Set time step of the simulation
     # dt = 0.001
@@ -40,7 +40,8 @@ def configure_simulation(dt, enableGUI):
     # realTimeSimulation = True # If True then we will sleep in the main loop to have a frequency of 1/dt
 
     # Disable default motor control for revolute joints
-    revoluteJointIndices = [0, 1, 3, 4, 6, 7, 9, 10]
+    #revoluteJointIndices = [0, 1, 3, 4, 6, 7, 9, 10, 12, 13]
+    revoluteJointIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     p.setJointMotorControlArray(robotId,
                                 jointIndices=revoluteJointIndices,
                                 controlMode=p.VELOCITY_CONTROL,
