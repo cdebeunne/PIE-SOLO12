@@ -8,7 +8,8 @@ import time
 
 import pybullet as p  # PyBullet simulator
 
-from .controller import c  # Controller functions
+from .controller import stand  # Controller functions
+from .controller import c_walking_ID
 # Functions to initialize the simulation and retrieve joints positions/velocities
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
@@ -16,7 +17,7 @@ from .initialization_simulation import configure_simulation, getPosVelJoints
 #  INITIALIZATION ##
 ####################
 
-dt = 0.001  # time step of the simulation
+dt = 0.0001  # time step of the simulation
 # If True then we will sleep in the main loop to have a 1:1 ratio of (elapsed real time / elapsed time in the
 # simulation)
 realTimeSimulation = True
@@ -37,7 +38,7 @@ for i in range(10000):  # run the simulation during dt * i_max seconds (simulati
     q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
     # Call controller to get torques for all joints
-    jointTorques = c(q, qdot, dt)
+    jointTorques = stand(q, qdot, dt)
 
     # Set control torques for all joints in PyBullet
     p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
