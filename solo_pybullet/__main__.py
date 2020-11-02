@@ -23,6 +23,7 @@ sim_tfinal = 10 # end time of the simulation
 sim_realTime_enable = True
 sim_slowMotion_enable = False
 sim_slowMotion_ratio = 10
+
 enableGUI = True  # enable PyBullet GUI or not
 robotId, solo, revoluteJointIndices = configure_simulation(sim_dt, enableGUI)
 

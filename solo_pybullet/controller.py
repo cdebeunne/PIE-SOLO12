@@ -18,22 +18,22 @@ def stand(q, qdot, solo, dt):
     qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
     torque_sat = 3  # torque saturation in N.m
     torques_ref = np.zeros((12, 1))  # feedforward torques
-    torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 1, 1, torque_sat, torques_ref)
+    torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 10, 1, torque_sat, torques_ref)
     return torques
 
 def jump(q, qdot, solo, dt):
-    print(q)
     qa = q[7:]
     qa_dot = qdot[6:]
     qa_ref = np.zeros((12, 1))  # target angular positions for the motors
-    for i in range(4):
-        qa_ref[2+3*i] = pi/2
-    qa_ref[1] = pi
-    qa_ref[4] = pi
-    qa_ref[7] = pi
-    qa_ref[11] = pi
+    
+    for leg in range(4):
+        for artic in range(1, 3):
+            qa_ref[3*leg+artic] = pi/2
 
-    # print("qa_ref:\t", qa_ref)
+    # print("error:", end='')
+    # for i in range(12):
+    #     print(qa[i]-qa_ref[i], end=",\t")
+    # print("")
 
     qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
     torque_sat = 3  # torque saturation in N.m

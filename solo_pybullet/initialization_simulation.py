@@ -22,7 +22,7 @@ def configure_simulation(dt, enableGUI):
     # p.DIRECT for non-graphical version
 
     # Set gravity (disabled by default)
-    p.setGravity(0, 0, -9.81)
+    p.setGravity(0, 0, 0)
 
     # Load horizontal plane for PyBullet
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -41,7 +41,7 @@ def configure_simulation(dt, enableGUI):
 
     # Disable default motor control for revolute joints
     #revoluteJointIndices = [0, 1, 3, 4, 6, 7, 9, 10, 12, 13]
-    revoluteJointIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    revoluteJointIndices = [0,1,2, 4,5,6, 8,9,10, 12,13,14]
     p.setJointMotorControlArray(robotId,
                                 jointIndices=revoluteJointIndices,
                                 controlMode=p.VELOCITY_CONTROL,
