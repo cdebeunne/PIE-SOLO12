@@ -7,7 +7,7 @@ from example_robot_data import loadSolo  # Functions to load the SOLO quadruped
 import pybullet as p  # PyBullet simulator
 
 
-def configure_simulation(dt, enableGUI):
+def configure_simulation(dt, enableGUI, enableGravity):
     global jointTorques
     # Load the robot for Pinocchio
     solo = loadSolo(False)
@@ -22,7 +22,10 @@ def configure_simulation(dt, enableGUI):
     # p.DIRECT for non-graphical version
 
     # Set gravity (disabled by default)
-    p.setGravity(0, 0, 0)
+    if enableGravity:
+        p.setGravity(0, 0, -9.81)
+    else:
+        p.setGravity(0, 0, 0)
 
     # Load horizontal plane for PyBullet
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
