@@ -10,7 +10,8 @@ from .PD import PD
 ################
 #  CONTROLLER ##
 ################
-def stand(q, qdot, dt):
+def stand(q, qdot, solo, dt):
+    solo.display(q)
     qa = q[7:]
     qa_dot = qdot[6:]
     qa_ref = np.zeros((12, 1))  # target angular positions for the motors
@@ -19,31 +20,10 @@ def stand(q, qdot, dt):
     torques_ref = np.zeros((12, 1))  # feedforward torques
     torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 1, 1, torque_sat, torques_ref)
     return torques
-
-def c(q, qdot, dt):
-    # unactuated, [x, y, z] position of the base + [x, y, z, w] orientation of the base (stored as a quaternion)
-    # qu = q[:7]
-    # actuated, [q1, q2, ..., q8] angular position of the 8 motors
-    qa = q[7:]
-    # [v_x, v_y, v_z] linear velocity of the base and [w_x, w_y, w_z] angular velocity of the base along x, y, z axes
-    # of the world
-    # qu_dot = qdot[:6]
-    qa_dot = qdot[6:]  # angular velocity of the 8 motors
-
-    qa_ref = np.zeros((8, 1))  # target angular positions for the motors
-    qa_dot_ref = np.zeros((8, 1))  # target angular velocities for the motors
-
-    # Parameters for the PD controller
-    Kp = 8.
-    Kd = 0.06
-    torque_sat = 3  # torque saturation in N.m
-    torques_ref = np.zeros((8, 1))  # feedforward torques
-
-    # Call the PD controller
-    torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, Kp, Kd, torque_sat, torques_ref)
-
-    # torques must be a numpy array of shape (8, 1) containing the torques applied to the 8 motors
-    return torques
+    
+def fall(q, solo):
+	solo.display(q)
+	return np.zeros((12,1))
 
 
 ########################

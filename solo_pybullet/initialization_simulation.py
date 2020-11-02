@@ -10,7 +10,7 @@ import pybullet as p  # PyBullet simulator
 def configure_simulation(dt, enableGUI):
     global jointTorques
     # Load the robot for Pinocchio
-    solo = loadSolo(True)
+    solo = loadSolo(False)
     solo.initDisplay(loadModel=True)
 
     # Start the client for PyBullet
