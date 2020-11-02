@@ -11,19 +11,12 @@ You can implement your controller on the *controller.py* file and call your cont
 
 ## Installation
 
-To install [Pinocchio](https://github.com/stack-of-tasks/pinocchio/), the urdf and meshes of the **Solo** Quadruped,
-the [Gepetto Viewer](https://github.com/gepetto/gepetto-viewer-corba) and their python bindings:
+Install [Pinocchio](https://github.com/stack-of-tasks/pinocchio/) following the procedure described [here](https://stack-of-tasks.github.io/pinocchio/download.html)
 
-```bash
-sudo tee /etc/apt/sources.list.d/robotpkg.list <<EOF
-deb [arch=amd64] http://robotpkg.openrobots.org/wip/packages/debian/pub $(lsb_release -cs) robotpkg
-deb [arch=amd64] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg
-EOF
-sudo apt update -qqy && sudo apt install -qqy robotpkg-py3\*-{pinocchio,example-robot-data,qt4-gepetto-viewer-corba}
-```
+Install [Gepetto Viewer](https://github.com/gepetto/gepetto-viewer-corba) following the procedure described [here](https://github.com/gepetto/gepetto-viewer-corba#setup-from-robotpkg-apt-binary-package-repository)
 
-To install PyBullet:
+Then, install PyBullet using pip 3:
 `pip3 install --user pybullet`
 
 ## How to start the simulation
-launch `gepetto-gui`, then `python3 -m solo_pybullet`
+Launch `gepetto-gui`, then `python3 -m solo_pybullet`
