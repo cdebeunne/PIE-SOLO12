@@ -32,6 +32,9 @@ robotId, solo, revoluteJointIndices = configure_simulation(sim_dt, enableGUI, si
 #  MAIN LOOP ##
 ###############
 
+isCouched = False
+inAir = False 
+
 for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max seconds (simulation time)
     cur_time = i*sim_dt
 
@@ -43,8 +46,7 @@ for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max 
     q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
     # Call controller to get torques for all joints
-    isExtended = cur_time>0.25*sim_tfinal
-    jointTorques = jump(q, qdot, solo, sim_dt, isExtended)
+    jointTorques, isCouched, inAir = jump(q, qdot, solo, sim_dt, isCouched, inAir)
 
     # Set control torques for all joints in PyBullet
     p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)

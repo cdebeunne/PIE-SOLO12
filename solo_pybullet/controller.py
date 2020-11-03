@@ -2,6 +2,7 @@
 
 # Other modules
 import numpy as np
+from numpy import linalg as la
 # Pinocchio modules
 import pinocchio as pin  # Pinocchio library
 from math import pi
@@ -21,32 +22,51 @@ def stand(q, qdot, solo, dt):
     torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 1, 1, torque_sat, torques_ref)
     return torques
 
-def jump(q, qdot, solo, dt, isExtended=False):
+def jump(q, qdot, solo, dt, isCouched, inAir):
     qa = q[7:]
     qa_dot = qdot[6:]
     qa_ref = np.zeros((12, 1))  # target angular positions for the motors
     
-    pos_ext = np.array([[0, 0.9*pi/2, -0.9*pi], \
+    # define the different configurations of the jump
+    pos_couch = np.array([[0, 0.9*pi/2, -0.9*pi], \
                         [0, 0.9*pi/2, -0.9*pi], \
                         [0, -0.9*pi/2, 0.9*pi], \
                         [0, -0.9*pi/2, 0.9*pi]])
-
-    if not isExtended:
-        for leg in range(4):
+    q_couch = np.zeros((12,1))
+    q_air = np.zeros((12,1))
+    q_jump = np.zeros((12,1))
+    for leg in range(4):
             for art in range(3):
-                qa_ref[3*leg+art] = pos_ext[leg, art]
+                q_couch[3*leg+art] = 0.8*pos_couch[leg, art]
+                q_air[3*leg+art] = 0.5*pos_couch[leg,art]
+
+    # check the step of the jump
+    if not isCouched:
+        isCouched = la.norm(qa-q_couch)<0.5
+    if isCouched and not inAir:
+        inAir = la.norm(qa-q_jump)<0.5
+
+    if not isCouched:
+        qa_ref = q_couch
         KD = 1
         KP = 10
     else:
-        KD = 0.1
+        qa_ref = q_jump
+        KD = 0.5
         KP = 50
-
+    
+    if inAir:
+        qa_ref = q_air
+        KD = 1
+        KP = 10
+    
+    
     qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
     torque_sat = 3  # torque saturation in N.m
     torques_ref = np.zeros((12, 1))  # feedforward torques
     torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, KP, KD, torque_sat, torques_ref)
 
-    return torques
+    return torques, isCouched, inAir
     
 def fall(q, solo):
 	return np.zeros((12,1))
