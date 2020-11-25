@@ -22,32 +22,32 @@ def stand(q, qdot, solo, dt):
     torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 1, 1, torque_sat, torques_ref)
     return torques
 
-def jump(q, qdot, solo, dt, isCouched, inAir):
+def jump(q, qdot, solo, dt, isCrouched, inAir):
     qa = q[7:]
     qa_dot = qdot[6:]
     qa_ref = np.zeros((12, 1))  # target angular positions for the motors
     
     # define the different configurations of the jump
-    pos_couch = np.array([[0, 0.9*pi/2, -0.9*pi], \
+    pos_crouch = np.array([[0, 0.9*pi/2, -0.9*pi], \
                         [0, 0.9*pi/2, -0.9*pi], \
                         [0, -0.9*pi/2, 0.9*pi], \
                         [0, -0.9*pi/2, 0.9*pi]])
-    q_couch = np.zeros((12,1))
+    q_crouch = np.zeros((12,1))
     q_air = np.zeros((12,1))
     q_jump = np.zeros((12,1))
     for leg in range(4):
             for art in range(3):
-                q_couch[3*leg+art] = 0.8*pos_couch[leg, art]
-                q_air[3*leg+art] = 0.5*pos_couch[leg,art]
+                q_crouch[3*leg+art] = 0.8*pos_crouch[leg, art]
+                q_air[3*leg+art] = 0.5*pos_crouch[leg,art]
 
     # check the step of the jump
-    if not isCouched:
-        isCouched = la.norm(qa-q_couch)<0.5
-    if isCouched and not inAir:
+    if not isCrouched:
+        isCrouched = la.norm(qa-q_crouch)<0.5
+    if isCrouched and not inAir:
         inAir = la.norm(qa-q_jump)<0.5
 
-    if not isCouched:
-        qa_ref = q_couch
+    if not isCrouched:
+        qa_ref = q_crouch
         KD = 1
         KP = 10
     else:
@@ -66,7 +66,7 @@ def jump(q, qdot, solo, dt, isCouched, inAir):
     torques_ref = np.zeros((12, 1))  # feedforward torques
     torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, KP, KD, torque_sat, torques_ref)
 
-    return torques, isCouched, inAir
+    return torques, isCrouched, inAir
     
 def fall(q, solo):
 	return np.zeros((12,1))
