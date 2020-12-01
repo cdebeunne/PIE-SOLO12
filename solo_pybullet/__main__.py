@@ -8,6 +8,7 @@ import time
 
 import pybullet as p  # PyBullet simulator
 
+from .trajectory import *
 from .controller import *
 # Functions to initialize the simulation and retrieve joints positions/velocities
 from .initialization_simulation import configure_simulation, getPosVelJoints
@@ -34,6 +35,10 @@ robotId, solo, revoluteJointIndices = configure_simulation(sim_dt, enableGUI, si
 
 isCrouched = False
 inAir = False 
+step = 1
+q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
+q_traj, gains = jumpTrajectory(1000, q)
+
 
 for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max seconds (simulation time)
     cur_time = i*sim_dt
@@ -46,7 +51,8 @@ for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max 
     q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
     # Call controller to get torques for all joints
-    jointTorques, isCrouched, inAir = jump(q, qdot, solo, sim_dt, isCrouched, inAir)
+    # jointTorques, isCrouched, inAir = jump(q, qdot, solo, sim_dt, isCrouched, inAir)
+    jointTorques, step = splineJump(q, qdot, solo, q_traj, gains, step, sim_dt)
 
     # Set control torques for all joints in PyBullet
     p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
