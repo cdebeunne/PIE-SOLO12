@@ -18,7 +18,7 @@ from .initialization_simulation import configure_simulation, getPosVelJoints
 ####################
 
 sim_dt = 0.0001  # time step of the simulation
-sim_tfinal = 3 # end time of the simulation
+sim_tfinal = 5 # end time of the simulation
 sim_gravity_enable = True
 # If True then we will sleep in the main loop to have a 1:1 ratio of (elapsed real time / elapsed time in the
 # simulation)
@@ -35,10 +35,8 @@ robotId, solo, revoluteJointIndices = configure_simulation(sim_dt, enableGUI, si
 
 isCrouched = False
 inAir = False 
-step = 1
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
-q_traj, gains = jumpTrajectory(1000, q)
-
+q_traj, qdot_traj, gains = jumpTrajectory(q, 1.5,1.65,2, sim_dt)
 
 for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max seconds (simulation time)
     cur_time = i*sim_dt
@@ -51,8 +49,8 @@ for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max 
     q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
     # Call controller to get torques for all joints
-    # jointTorques, isCrouched, inAir = jump(q, qdot, solo, sim_dt, isCrouched, inAir)
-    jointTorques, step = splineJump(q, qdot, solo, q_traj, gains, step, sim_dt)
+    #jointTorques, isCrouched, inAir = jump(q, qdot, solo, sim_dt, isCrouched, inAir)
+    jointTorques = splineJump(q, qdot, solo, q_traj, qdot_traj, gains, i, sim_dt)
 
     # Set control torques for all joints in PyBullet
     p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
@@ -63,7 +61,8 @@ for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max 
 
     # Sleep to get a real time simulation
     if sim_realTime_enable:
-        t_sleep = sim_dt - (time.clock() - t0)
+        t_sleep = 0
+        #t_sleep = sim_dt - (time.clock() - t0)
         if t_sleep > 0:
             time.sleep(t_sleep)
     elif sim_slowMotion_enable:

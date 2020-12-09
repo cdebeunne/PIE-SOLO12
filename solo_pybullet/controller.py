@@ -49,11 +49,11 @@ def jump(q, qdot, solo, dt, isCrouched, inAir):
     if not isCrouched:
         qa_ref = q_crouch
         KD = 1
-        KP = 10
+        KP = 5
     else:
         qa_ref = q_jump
         KD = 0.5
-        KP = 50
+        KP = 20
     
     if inAir:
         qa_ref = q_air
@@ -68,23 +68,24 @@ def jump(q, qdot, solo, dt, isCrouched, inAir):
 
     return torques, isCrouched, inAir
     
-def splineJump(q, qdot, solo, q_traj, gains, step, dt):
+def splineJump(q, qdot, solo, q_traj, qdot_traj, gains, step, dt):
 	qa = q[7:]
 	qa_dot = qdot[6:]
-	qa_ref = q_traj[:, step].reshape(12,1)  # target angular positions for the motors
-	if la.norm(qa-qa_ref)<0.5 and step < np.size(q_traj,1)-1:
-		step += 1
-		qa_ref = q_traj[:, step].reshape(12,1)
-	
-		
-	KD = gains[0,step];
-	KP = gains[1,step];
-	qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
+	if step < q_traj.shape[1]:
+		KD = gains[0,step]
+		KP = gains[1,step]
+		qa_ref = q_traj[:, step].reshape(12,1)  # target angular positions for the motors
+		qa_dot_ref = qdot_traj[:, step].reshape(12,1)  # target angular velocities for the motors
+	else:
+		KD = 1
+		KP = 10
+		qa_ref = q_traj[:, q_traj.shape[1]-1].reshape(12,1)
+		qa_dot_ref = np.zeros((12, 1))
 	torque_sat = 3  # torque saturation in N.m
 	torques_ref = np.zeros((12, 1))  # feedforward torques
 	torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, KP, KD, torque_sat, torques_ref)
 	
-	return torques, step
+	return torques
     
  
 def fall(q, solo):
