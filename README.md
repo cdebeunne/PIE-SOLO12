@@ -20,3 +20,12 @@ Then, install PyBullet using pip 3:
 
 ## How to start the simulation
 Launch `gepetto-gui`, then `python3 -m solo_pybullet`
+
+## A first smooth jump trajectory
+
+The jump controller is currently based on cubic splines. The trajectory is parametrized by the time of the three phases of the jump: crouching, jumping and reaching reception position.  
+![Trajectory vizualisation](./plot/Figure_1.png)
+
+## To do
+
+Optimal trajectory and gains wrt the jump we want
