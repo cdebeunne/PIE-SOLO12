@@ -8,14 +8,12 @@ import time
 
 import pybullet as p  # PyBullet simulator
 
-from .trajectory import *
-from .controller import *
-# Functions to initialize the simulation and retrieve joints positions/velocities
-from .initialization_simulation import configure_simulation, getPosVelJoints
-
 ####################
 #  INITIALIZATION ##
 ####################
+
+# Functions to initialize the simulation and retrieve joints positions/velocities
+from .initialization_simulation import configure_simulation, getPosVelJoints
 
 sim_dt = 0.0001  # time step of the simulation
 sim_tfinal = 5 # end time of the simulation
@@ -28,6 +26,14 @@ sim_slowMotion_ratio = 10
 
 enableGUI = True  # enable PyBullet GUI or not
 robotId, solo, revoluteJointIndices = configure_simulation(sim_dt, enableGUI, sim_gravity_enable)
+
+######################
+#  IMPORT TRAJECTORY #
+######################
+
+from .trajectory import *
+from .controller import *
+# MatplotLib must be imported after Pybullet as been initialized in order to solve conflicts.
 
 ###############
 #  MAIN LOOP ##
