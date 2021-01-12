@@ -97,7 +97,32 @@ def jumpTrajectory(q_start, t_crouch, t_jump, t_air, dt):
 q_ref = np.zeros((19, 1))
 flag_q_ref = True
 
-def c_jumping_IK(q, qdot, dt, solo, t_simu, display=True):
+
+# function defining the feet's trajectory
+def jump_traj(t, x0, y0, z0):  # arguments : time, initial position x, y and z
+	T = 0.2  # period of the foot trajectory
+	dx = 0.03  # displacement amplitude by x
+	dz = 0.06  # displacement amplitude by z
+
+	x = []
+	z = []
+	y = []
+	if t >= T:
+		t %= T
+	
+	x.append(x0 * 1.1)
+
+	y.append(y0)
+
+	if t <= T / 2.:
+		z.append(z0 + dz * np.sin(2 * np.pi * t / T))
+	else:
+		z.append(z0)
+
+	return np.array([x[-1], y[-1], z[-1]])
+
+
+def kinInv_3D(q, qdot, dt, solo, t_simu, ftraj, display=True):
 	from numpy.linalg import pinv
 	global q_ref, flag_q_ref
 
@@ -116,34 +141,11 @@ def c_jumping_IK(q, qdot, dt, solo, t_simu, display=True):
 		flag_q_ref = False
 
 	# Initialization of the variables
-	T = 0.2  # period of the foot trajectory
 	xF0 = 0.19  # initial position of the front feet
 	xH0 = -0.19  # initial position of the hind feet
 	yL0 = 0.147  # Initial position of the left feet
 	yR0 = -0.147 # Initial position of the right feet
 	z0 = 0.01  # initial altitude of each foot
-	dx = 0.03  # displacement amplitude by x
-	dz = 0.06  # displacement amplitude by z
-
-	# function defining the feet's trajectory
-	def ftraj(t, x0, y0, z0):  # arguments : time, initial position x and z
-		nonlocal T, dx, dz
-		x = []
-		z = []
-		y = []
-		if t >= T:
-			t %= T
-		
-		x.append(x0 - dx * np.cos(2 * np.pi * t / T))
-
-		y.append(y0)
-
-		if t <= T / 2.:
-			z.append(z0 + dz * np.sin(2 * np.pi * t / T))
-		else:
-			z.append(z0)
-
-		return np.array([x[-1], y[-1], z[-1]])
 
 	# Compute/update all the joints and frames
 	pin.forwardKinematics(solo.model, solo.data, q_ref)
@@ -164,8 +166,8 @@ def c_jumping_IK(q, qdot, dt, solo, t_simu, display=True):
 	# Desired foot trajectory
 	xyzdes_FL = ftraj(t_simu, xF0, yL0, z0)
 	xyzdes_HR = ftraj(t_simu, xH0, yR0, z0)
-	xyzdes_FR = ftraj(t_simu + T / 2, xF0, yR0, z0)
-	xyzdes_HL = ftraj(t_simu + T / 2, xH0, yL0, z0)
+	xyzdes_FR = ftraj(t_simu, xF0, yR0, z0)
+	xyzdes_HL = ftraj(t_simu, xH0, yL0, z0)
 
 	# Calculating the error
 	err_FL = (xyz_FL - xyzdes_FL)
@@ -233,7 +235,7 @@ if __name__ == '__main__':
 	q_dot = np.zeros((solo.model.nv, 1))
 
 	for t in np.arange(0, 4*0.2, dt):
-		q, q_dot  = c_walking_IK(q, q_dot, dt, solo, t)
+		q, q_dot  = kinInv_3D(q, q_dot, dt, solo, t, jump_traj)
 		# pause()
 		
 
