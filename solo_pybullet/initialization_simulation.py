@@ -11,11 +11,11 @@ def configure_simulation(dt, enableGUI, enableGravity):
     global jointTorques
     # Load the robot for Pinocchio
     solo = loadSolo(False)
-    solo.initDisplay(loadModel=True)
 
     # Start the client for PyBullet
     if enableGUI:
         physicsClient = p.connect(p.GUI)
+        solo.initDisplay(loadModel=True)
     else:
         physicsClient = p.connect(p.DIRECT)  # noqa
     # p.GUI for graphical version

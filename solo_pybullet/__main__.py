@@ -38,6 +38,7 @@ inAir = False
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 q_traj, qdot_traj, gains = jumpTrajectory(q, 1.5,1.65,2, sim_dt)
 
+
 for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max seconds (simulation time)
     cur_time = i*sim_dt
 
