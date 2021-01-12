@@ -125,9 +125,11 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
 	T = 0.2  # period of the foot trajectory
 	xF0 = 0.19  # initial position of the front feet
 	xH0 = -0.19  # initial position of the hind feet
-	z0 = 0  # initial altitude of each foot
-	dx = 0.06  # displacement amplitude by x
-	dz = 0.03  # displacement amplitude by z
+	yL0 = 0.147
+	yR0 = -0.147
+	z0 = 0.01  # initial altitude of each foot
+	dx = 0.03  # displacement amplitude by x
+	dz = 0.06  # displacement amplitude by z
 
 	# Get the frame index of each foot
 	ID_FL = solo.model.getFrameId("FL_FOOT")
@@ -136,40 +138,46 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
 	ID_HR = solo.model.getFrameId("HR_FOOT")
 
 	# function defining the feet's trajectory
-	def ftraj(t, x0, z0):  # arguments : time, initial position x and z
+	def ftraj(t, x0, y0, z0):  # arguments : time, initial position x and z
 		global T, dx, dz
 		x = []
 		z = []
+		y = []
 		if t >= T:
 			t %= T
+		
 		x.append(x0 - dx * np.cos(2 * np.pi * t / T))
+
+		y.append(y0)
+
 		if t <= T / 2.:
 			z.append(z0 + dz * np.sin(2 * np.pi * t / T))
 		else:
-			z.append(0)
-		return np.array([x[-1], z[-1]])
+			z.append(z0)
+
+		return np.array([x[-1], y[-1], z[-1]])
 
 	# Compute/update all the joints and frames
 	pin.forwardKinematics(solo.model, solo.data, q_ref)
 	pin.updateFramePlacements(solo.model, solo.data)
 
 	# Get the current height (on axis z) and the x-coordinate of the front left foot
-	xz_FL = solo.data.oMf[ID_FL].translation[0::2]
-	xz_FR = solo.data.oMf[ID_FR].translation[0::2]
-	xz_HL = solo.data.oMf[ID_HL].translation[0::2]
-	xz_HR = solo.data.oMf[ID_HR].translation[0::2]
+	xyz_FL = solo.data.oMf[ID_FL].translation
+	xyz_FR = solo.data.oMf[ID_FR].translation
+	xyz_HL = solo.data.oMf[ID_HL].translation
+	xyz_HR = solo.data.oMf[ID_HR].translation
 
 	# Desired foot trajectory
-	xzdes_FL = ftraj(t_simu, xF0, z0)
-	xzdes_HR = ftraj(t_simu, xH0, z0)
-	xzdes_FR = ftraj(t_simu + T / 2, xF0, z0)
-	xzdes_HL = ftraj(t_simu + T / 2, xH0, z0)
+	xyzdes_FL = ftraj(t_simu, xF0, yL0, z0)
+	xyzdes_HR = ftraj(t_simu, xH0, yR0, z0)
+	xyzdes_FR = ftraj(t_simu + T / 2, xF0, yR0, z0)
+	xyzdes_HL = ftraj(t_simu + T / 2, xH0, yL0, z0)
 
 	# Calculating the error
-	err_FL = (xz_FL - xzdes_FL)
-	err_FR = (xz_FR - xzdes_FR)
-	err_HL = (xz_HL - xzdes_HL)
-	err_HR = (xz_HR - xzdes_HR)
+	err_FL = (xyz_FL - xyzdes_FL)
+	err_FR = (xyz_FR - xyzdes_FR)
+	err_HL = (xyz_HL - xyzdes_HL)
+	err_HR = (xyz_HR - xyzdes_HR)
 
 	# Computing the local Jacobian into the global frame
 	oR_FL = solo.data.oMf[ID_FL].rotation
@@ -180,19 +188,19 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
 	# Getting the different Jacobians
 	fJ_FL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FL)[:3, -12:]  # Take only the translation terms
 	oJ_FL3 = oR_FL.dot(fJ_FL3)  # Transformation from local frame to world frame
-	oJ_FLxz = oJ_FL3[0::2, -12:]  # Take the x and z components
+	oJ_FLxz = oJ_FL3[0:3, -12:]  # Take the x and z components
 
 	fJ_FR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FR)[:3, -12:]
 	oJ_FR3 = oR_FR.dot(fJ_FR3)
-	oJ_FRxz = oJ_FR3[0::2, -12:]
+	oJ_FRxz = oJ_FR3[0:3, -12:]
 
 	fJ_HL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HL)[:3, -12:]
 	oJ_HL3 = oR_HL.dot(fJ_HL3)
-	oJ_HLxz = oJ_HL3[0::2, -12:]
+	oJ_HLxz = oJ_HL3[0:3, -12:]
 
 	fJ_HR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HR)[:3, -12:]
 	oJ_HR3 = oR_HR.dot(fJ_HR3)
-	oJ_HRxz = oJ_HR3[0::2, -12:]
+	oJ_HRxz = oJ_HR3[0:3, -12:]
 
 	# Displacement error
 	nu = np.hstack([err_FL, err_FR, err_HL, err_HR])
