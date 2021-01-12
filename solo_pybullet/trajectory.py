@@ -88,7 +88,7 @@ def jumpTrajectory(q_start, t_crouch, t_jump, t_air, dt):
 	return q_traj, qdot_traj, gains
 
 ########################
-## WALKING_CONTROLLER ##
+## JUMPING_CONTROLLER ##
 ########################
 
 # Method : Inverse Kinematics
@@ -97,49 +97,37 @@ def jumpTrajectory(q_start, t_crouch, t_jump, t_air, dt):
 q_ref = np.zeros((19, 1))
 flag_q_ref = True
 
-def c_walking_IK(q, qdot, dt, solo, t_simu):
+def c_jumping_IK(q, qdot, dt, solo, t_simu, display=True):
+	from numpy.linalg import pinv
+	global q_ref, flag_q_ref
+
+	K = 100.  # Convergence gain
+
 	# unactuated, [x, y, z] position of the base + [x, y, z, w] orientation of the base (stored as a quaternion)
 	# qu = q[:7]
-	qa = q[7:]  # actuated, [q1, q2, ..., q8] angular position of the 8 motors
 	# [v_x, v_y, v_z] linear velocity of the base and [w_x, w_y, w_z] angular velocity of the base along x, y, z axes
 	# of the world
 	# qu_dot = qdot[:6]
-	qa_dot = qdot[6:]  # angular velocity of the 8 motors
 
-	qa_ref = np.zeros((12, 1))  # target angular positions for the motors
 	qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
-
-	###############################################
-	# Insert code here to set qa_ref and qa_dot_ref
-
-	from numpy.linalg import pinv
-
-	global q_ref, flag_q_ref, T, dx, dz
 
 	if flag_q_ref:
 		q_ref = solo.q0.copy()
 		flag_q_ref = False
 
 	# Initialization of the variables
-	K = 100.  # Convergence gain
 	T = 0.2  # period of the foot trajectory
 	xF0 = 0.19  # initial position of the front feet
 	xH0 = -0.19  # initial position of the hind feet
-	yL0 = 0.147
-	yR0 = -0.147
+	yL0 = 0.147  # Initial position of the left feet
+	yR0 = -0.147 # Initial position of the right feet
 	z0 = 0.01  # initial altitude of each foot
 	dx = 0.03  # displacement amplitude by x
 	dz = 0.06  # displacement amplitude by z
 
-	# Get the frame index of each foot
-	ID_FL = solo.model.getFrameId("FL_FOOT")
-	ID_FR = solo.model.getFrameId("FR_FOOT")
-	ID_HL = solo.model.getFrameId("HL_FOOT")
-	ID_HR = solo.model.getFrameId("HR_FOOT")
-
 	# function defining the feet's trajectory
 	def ftraj(t, x0, y0, z0):  # arguments : time, initial position x and z
-		global T, dx, dz
+		nonlocal T, dx, dz
 		x = []
 		z = []
 		y = []
@@ -161,7 +149,13 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
 	pin.forwardKinematics(solo.model, solo.data, q_ref)
 	pin.updateFramePlacements(solo.model, solo.data)
 
-	# Get the current height (on axis z) and the x-coordinate of the front left foot
+	# Get the frame index of each foot
+	ID_FL = solo.model.getFrameId("FL_FOOT")
+	ID_FR = solo.model.getFrameId("FR_FOOT")
+	ID_HL = solo.model.getFrameId("HL_FOOT")
+	ID_HR = solo.model.getFrameId("HR_FOOT")
+
+	# Get the current position of the feet
 	xyz_FL = solo.data.oMf[ID_FL].translation
 	xyz_FR = solo.data.oMf[ID_FR].translation
 	xyz_HL = solo.data.oMf[ID_HL].translation
@@ -188,27 +182,27 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
 	# Getting the different Jacobians
 	fJ_FL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FL)[:3, -12:]  # Take only the translation terms
 	oJ_FL3 = oR_FL.dot(fJ_FL3)  # Transformation from local frame to world frame
-	oJ_FLxz = oJ_FL3[0:3, -12:]  # Take the x and z components
+	oJ_FLxyz = oJ_FL3[0:3, -12:]  # Take the x,y & z components
 
 	fJ_FR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_FR)[:3, -12:]
 	oJ_FR3 = oR_FR.dot(fJ_FR3)
-	oJ_FRxz = oJ_FR3[0:3, -12:]
+	oJ_FRxyz = oJ_FR3[0:3, -12:]
 
 	fJ_HL3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HL)[:3, -12:]
 	oJ_HL3 = oR_HL.dot(fJ_HL3)
-	oJ_HLxz = oJ_HL3[0:3, -12:]
+	oJ_HLxyz = oJ_HL3[0:3, -12:]
 
 	fJ_HR3 = pin.computeFrameJacobian(solo.model, solo.data, q_ref, ID_HR)[:3, -12:]
 	oJ_HR3 = oR_HR.dot(fJ_HR3)
-	oJ_HRxz = oJ_HR3[0:3, -12:]
+	oJ_HRxyz = oJ_HR3[0:3, -12:]
 
 	# Displacement error
 	nu = np.hstack([err_FL, err_FR, err_HL, err_HR])
 	nu = np.matrix(nu)
 	nu = np.transpose(nu)
 
-	# Making a single x&z-rows Jacobian vector
-	J = np.vstack([oJ_FLxz, oJ_FRxz, oJ_HLxz, oJ_HRxz])
+	# Making a single x&y&z-rows Jacobian vector
+	J = np.vstack([oJ_FLxyz, oJ_FRxyz, oJ_HLxyz, oJ_HRxyz])
 
 	# Computing the velocity
 	qa_dot_ref = -K * pinv(J) * nu
@@ -218,11 +212,11 @@ def c_walking_IK(q, qdot, dt, solo, t_simu):
 	q_ref = pin.integrate(solo.model, q_ref, q_dot_ref * dt)
 	qa_ref = q_ref[7:].reshape(12,1)
   
+	if display:
+		# DONT FORGET TO RUN GEPETTO-GUI BEFORE RUNNING THIS PROGRAMM #
+		solo.display(q_ref)  # display the robot in the viewer Gepetto-GUI given its configuration q
 
-	# DONT FORGET TO RUN GEPETTO-GUI BEFORE RUNNING THIS PROGRAMM #
-	solo.display(q_ref)  # display the robot in the viewer Gepetto-GUI given its configuration q
-
-	# torques must be a numpy array of shape (8, 1) containing the torques applied to the 8 motors
+	# Return configuration of the robot
 	return q_ref, q_dot_ref
 
 def pause():
@@ -233,19 +227,7 @@ if __name__ == '__main__':
 	solo.initViewer(loadModel=True)
 
 	dt = 0.0001
-	q_start = np.zeros((19,1))
-	t_crouch = 1.2
-	t_jump = 1.7
-	t_air = 3
 
-	# qTraj, qdotTraj, gains = jumpTrajectory(q_start, t_crouch, t_jump, t_air, dt)
-	# x = np.arange(0,t_air, dt)
-	# plt.figure()
-	# plt.plot(x, qTraj[1,:], 'g', x, qTraj[2,:], 'b')
-	# plt.legend(['Shoulder', 'Knee'])
-	# plt.axis([0, t_air, -5, 5])
-	# plt.title('Cubic-spline trajectory of a front leg')
-	# plt.show()
 	solo.q0[2] = 0.32
 	q = solo.q0.copy()
 	q_dot = np.zeros((solo.model.nv, 1))
