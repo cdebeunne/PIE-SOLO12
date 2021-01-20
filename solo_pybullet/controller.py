@@ -91,3 +91,13 @@ def splineJump(q, qdot, solo, q_traj, qdot_traj, gains, step, dt):
 def fall(q, solo):
 	return np.zeros((12,1))
 
+
+####################
+#  SECURITY CHECK ##
+####################
+
+def torque_check(torque, torque_threshold):
+	for art in range(12):
+		if torque(art)>torque_treshold:
+			return false
+	return true
