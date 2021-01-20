@@ -1,13 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 from scipy import interpolate
 from math import pi
 from example_robot_data import loadSolo  # Functions to load the SOLO quadruped
 import pinocchio as pin  # Pinocchio library
 
-def jumpTrajectory(q_start, t_crouch, t_jump, t_air, dt):
-	
+def jumpTrajectory_1(q_start, t_crouch, t_jump, t_air, dt):
 	# define the different configurations of the jump
 	pos_crouch = np.array([[0, pi/2, -pi], \
 						[0, pi/2, -pi], \
@@ -82,47 +80,125 @@ def jumpTrajectory(q_start, t_crouch, t_jump, t_air, dt):
 			gains[:,i] = np.array([0.5,10])
 		else:
 			gains[:,i] = np.array([1,10])
-
-	
 	
 	return q_traj, qdot_traj, gains
 
-########################
-## JUMPING_CONTROLLER ##
-########################
 
-# Method : Inverse Kinematics
+def jumpTrajectory_2(**kwargs):
+	# params: T_sim, 
+	q_traj = []
+	qdot_traj = []
+	gains = []
+
+	solo = loadSolo(False)
+	solo.initViewer(loadModel=True)
+
+	print(kwargs)
+
+	# Place the robot in a regular configuration
+	solo.q0[2] = 0.
+	for i in range(4):
+		sign = 1 if kwargs.get("init_reversed", False) else -1
+		print(sign)
+		if i<2:
+			solo.q0[7+3*i+1] = +sign*pi/4 
+			solo.q0[7+3*i+2] = -sign*pi/2
+		else:
+			solo.q0[7+3*i+1] = -sign*pi/4
+			solo.q0[7+3*i+2] = +sign*pi/2
+
+	q = solo.q0.copy()
+	q_dot = np.zeros((solo.model.nv, 1))
+
+	# Reach the initial position first
+	step = 0
+	while True:
+		q, q_dot, err  = kinInv_3D(q, q_dot, solo, 0, trajFeet_jump1, **kwargs)
+		if err<10**(-10):
+			break
+
+		step += 1
+
+		if step>1000:
+			print("Unable to reach the first position.")
+			return q_traj, qdot_traj, gains
+	
+	# Run the trajectory definition
+	flag_errTooHigh = False
+	maxE = 0
+	for t in np.arange(0, kwargs['tf'], kwargs['dt']):
+		q, q_dot, err = kinInv_3D(q, q_dot, solo, t, trajFeet_jump1, **kwargs)
+		q_traj.append(q)
+		qdot_traj.append(q_dot)
+
+		if err>0.5:
+			flag_errTooHigh = True
+			if err>maxE:
+				maxE = err
+
+	if flag_errTooHigh:
+		print("The error was pretty high. Maybe the trajectory is trop ambitious (maxE=",maxE, ")", sep='')
+	
+	q_traj = np.array(q_traj)
+	qdot_traj = np.array(qdot_traj)
+	gains = np.array(gains)
+
+	return q_traj, qdot_traj, gains
+		
+
+# function defining the feet's trajectory
+def trajFeet_jump1(t, footId,  **kwargs):
+	T = kwargs.get("traj_T", 2)  # period of the foot trajectory
+	dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
+	dy = kwargs.get("traj_dy", 0.1)  #
+	dx = kwargs.get("traj_dx", dy)  #
+
+	# Initialization of the variables
+	traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
+	traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
+	traj_z0 = kwargs.get("traj_z0", 0.05) # initial distance on the z axis from body
+	traj_zf = kwargs.get("traj_zf", 0.05) # initial distance on the z axis from body
+
+	x0 = -traj_x0 if int(footId/2)%2 else traj_x0
+	y0 = -traj_y0 if footId%2 else traj_y0
+	z0 = traj_z0
+
+	x, y, z = [], [], []
+	x = x0*1.1
+
+	# If time is overlapping the duration of the sequence, stay in last position
+	if t>T:
+		t=T
+
+	# First part of the jump, push while staying at same position
+	if t < T/2:
+		z = z0-dz*np.sin(np.pi * t / T)
+
+		x = x0
+		y = y0
+	# Second part of the jump, exand feets and retract legs
+	elif t <= T:
+		if x0>0:
+			x = x0 + dx * np.sin(np.pi * (t-T/2) / T)
+		else:
+			x = x0 - dx * np.sin(np.pi * (t-T/2) / T)
+
+		if y0>0:
+			y = y0 + dy * np.sin(np.pi * (t-T/2) / T)
+		else:
+			y = y0 - dy * np.sin(np.pi * (t-T/2) / T)
+		
+		z = -traj_zf + (traj_zf-traj_z0-dz)*np.cos(np.pi * t / T)
+
+	return np.array([x, y, z])
+
+
 
 # Initialization of the controller's parameters
 q_ref = np.zeros((19, 1))
 flag_q_ref = True
 
-
-# function defining the feet's trajectory
-def jump_traj(t, x0, y0, z0):  # arguments : time, initial position x, y and z
-	T = 0.2  # period of the foot trajectory
-	dx = 0.03  # displacement amplitude by x
-	dz = 0.06  # displacement amplitude by z
-
-	x = []
-	z = []
-	y = []
-	if t >= T:
-		t %= T
-	
-	x.append(x0 * 1.1)
-
-	y.append(y0)
-
-	if t <= T / 2.:
-		z.append(z0 + dz * np.sin(2 * np.pi * t / T))
-	else:
-		z.append(z0)
-
-	return np.array([x[-1], y[-1], z[-1]])
-
-
-def kinInv_3D(q, qdot, dt, solo, t_simu, ftraj, display=True):
+def kinInv_3D(q, qdot, solo, t_simu, ftraj, **kwargs):
 	from numpy.linalg import pinv
 	global q_ref, flag_q_ref
 
@@ -139,13 +215,6 @@ def kinInv_3D(q, qdot, dt, solo, t_simu, ftraj, display=True):
 	if flag_q_ref:
 		q_ref = solo.q0.copy()
 		flag_q_ref = False
-
-	# Initialization of the variables
-	xF0 = 0.19  # initial position of the front feet
-	xH0 = -0.19  # initial position of the hind feet
-	yL0 = 0.147  # Initial position of the left feet
-	yR0 = -0.147 # Initial position of the right feet
-	z0 = 0.01  # initial altitude of each foot
 
 	# Compute/update all the joints and frames
 	pin.forwardKinematics(solo.model, solo.data, q_ref)
@@ -164,10 +233,10 @@ def kinInv_3D(q, qdot, dt, solo, t_simu, ftraj, display=True):
 	xyz_HR = solo.data.oMf[ID_HR].translation
 
 	# Desired foot trajectory
-	xyzdes_FL = ftraj(t_simu, xF0, yL0, z0)
-	xyzdes_HR = ftraj(t_simu, xH0, yR0, z0)
-	xyzdes_FR = ftraj(t_simu, xF0, yR0, z0)
-	xyzdes_HL = ftraj(t_simu, xH0, yL0, z0)
+	xyzdes_FL = ftraj(t_simu, 0, **kwargs)
+	xyzdes_FR = ftraj(t_simu, 1, **kwargs)
+	xyzdes_HL = ftraj(t_simu, 2, **kwargs)
+	xyzdes_HR = ftraj(t_simu, 3, **kwargs)
 
 	# Calculating the error
 	err_FL = (xyz_FL - xyzdes_FL)
@@ -211,31 +280,36 @@ def kinInv_3D(q, qdot, dt, solo, t_simu, ftraj, display=True):
 	q_dot_ref = np.concatenate((np.zeros([6, 1]), qa_dot_ref))
 
 	# Computing the updated configuration
-	q_ref = pin.integrate(solo.model, q_ref, q_dot_ref * dt)
+	q_ref = pin.integrate(solo.model, q_ref, q_dot_ref * kwargs['dt'])
 	qa_ref = q_ref[7:].reshape(12,1)
-  
-	if display:
-		# DONT FORGET TO RUN GEPETTO-GUI BEFORE RUNNING THIS PROGRAMM #
-		solo.display(q_ref)  # display the robot in the viewer Gepetto-GUI given its configuration q
 
 	# Return configuration of the robot
-	return q_ref, q_dot_ref
+	q_dot_ref = np.squeeze(np.array(q_dot_ref))
+	err = np.linalg.norm(nu)
 
-def pause():
-    programPause = input("Press the <ENTER> key to continue...")
+	return q_ref, q_dot_ref, err
+
 
 if __name__ == '__main__':
+	import time
+
+	dt = 0.01
+	t = np.arange(0, 10, dt)
+	
+	print("Computing Trajectory...")
+	t0 = time.time()
+	q_traj = jumpTrajectory_2(init_reversed=True, tf=10, dt=dt, T=2)[0]
+	print("Done in", time.time()-t0, "s")
+
 	solo = loadSolo(False)
 	solo.initViewer(loadModel=True)
 
-	dt = 0.0001
+	for i in range(min(len(t), len(q_traj))):
+		t0 = time.time()
+		solo.display(q_traj[i])
 
-	solo.q0[2] = 0.32
-	q = solo.q0.copy()
-	q_dot = np.zeros((solo.model.nv, 1))
-
-	for t in np.arange(0, 4*0.2, dt):
-		q, q_dot  = kinInv_3D(q, q_dot, dt, solo, t, jump_traj)
-		# pause()
+		while(time.time()-t0<dt):
+			time.sleep(0.00001)
+	
 		
 
