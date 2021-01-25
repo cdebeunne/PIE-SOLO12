@@ -137,3 +137,13 @@ control_traj.ended = False
 control_traj.offset = 0
 
 
+
+####################
+#  SECURITY CHECK ##
+####################
+
+def torque_check(torque, torque_threshold):
+	for art in range(12):
+		if torque(art)>torque_treshold:
+			return false
+	return true
