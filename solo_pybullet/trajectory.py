@@ -193,7 +193,7 @@ def trajFeet_jump1(t, footId,  **kwargs):
 	traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
 	traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
 	traj_z0 = kwargs.get("traj_z0", -0.05) # initial distance on the z axis from body
-	traj_zf = kwargs.get("traj_zf", -0.15) # initial distance on the z axis from body
+	traj_zf = kwargs.get("traj_zf", -0.2) # initial distance on the z axis from body
 
 	if traj_z0>=0 or traj_zf>=0:
 		print("traj_z0 or traj_zf might be positive. This may lead to invalid configuration.")
