@@ -11,8 +11,12 @@ from .PD import PD
 
 ################
 #  CONTROLLER ##
-################
-def stand(q, qdot, solo, dt):
+################ 
+
+def control_fall(q, solo):
+	return np.zeros((12,1))
+
+def control_stand(q, qdot, solo, dt):
 	qa = q[7:]
 	qa_dot = qdot[6:]
 	qa_ref = np.zeros((12, 1))  # target angular positions for the motors
@@ -22,7 +26,7 @@ def stand(q, qdot, solo, dt):
 	torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 1, 1, torque_sat, torques_ref)
 	return torques
 
-def jump(q, qdot, solo, dt, isCrouched, inAir):
+def control_jump(q, qdot, solo, dt):
 	qa = q[7:]
 	qa_dot = qdot[6:]
 	qa_ref = np.zeros((12, 1))  # target angular positions for the motors
@@ -41,12 +45,12 @@ def jump(q, qdot, solo, dt, isCrouched, inAir):
 				q_air[3*leg+art] = 0.5*pos_crouch[leg,art]
 
 	# check the step of the jump
-	if not isCrouched:
-		isCrouched = la.norm(qa-q_crouch)<0.5
-	if isCrouched and not inAir:
-		inAir = la.norm(qa-q_jump)<0.5
+	if not control_jump.isCrouched:
+		control_jump.isCrouched = la.norm(qa-q_crouch)<0.5
+	if control_jump.isCrouched and not control_jump.inAir:
+		control_jump.inAir = la.norm(qa-q_jump)<0.5
 
-	if not isCrouched:
+	if not control_jump.isCrouched:
 		qa_ref = q_crouch
 		KD = 1
 		KP = 5
@@ -55,7 +59,7 @@ def jump(q, qdot, solo, dt, isCrouched, inAir):
 		KD = 0.5
 		KP = 20
 	
-	if inAir:
+	if control_jump.inAir:
 		qa_ref = q_air
 		KD = 1
 		KP = 10
@@ -66,7 +70,11 @@ def jump(q, qdot, solo, dt, isCrouched, inAir):
 	torques_ref = np.zeros((12, 1))  # feedforward torques
 	torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, KP, KD, torque_sat, torques_ref)
 
-	return torques, isCrouched, inAir
+	return torques
+
+control_jump.isCrouched = False
+control_jump.inAir = False
+
 
 def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 	torque_sat = 3  # torque saturation in N.m
@@ -93,7 +101,7 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 
 		# If it is reached, continue
 		if np.linalg.norm(qa_ref-qa) < threshold:
-			print('Reached first position.')
+			print('Reached first state.')
 			control_traj.initialized = True
 	
 	# Then run the trajectory
@@ -104,6 +112,10 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 		# Get the current state in the trajectory
 		if t>np.max(t_traj):
 			index = -1
+
+			if not control_traj.ended:
+				print("End of trajectory. Staying in last state.")
+				control_traj.ended = True
 		else:
 			index = np.argmax(t_traj>t)
 
@@ -121,8 +133,7 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 	return torques
 
 control_traj.initialized = False
+control_traj.ended = False
 control_traj.offset = 0
- 
-def fall(q, solo):
-	return np.zeros((12,1))
+
 

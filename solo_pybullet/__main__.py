@@ -31,21 +31,19 @@ robotId, solo, revoluteJointIndices = configure_simulation(sim_dt, enableGUI, si
 #  IMPORT TRAJECTORY #
 ######################
 
-from .trajectory import *
-from .controller import *
+from .trajectory import jumpTrajectory_1, jumpTrajectory_2
+from .controller import control_traj
 # MatplotLib must be imported after Pybullet as been initialized in order to solve conflicts.
 
 ###############
 #  MAIN LOOP ##
 ###############
 
-isCrouched = False
-inAir = False 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
 # Compute Joint Trajectory
 t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_1(q, 1, 2, 3, 10*sim_dt)
-t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_2(init_reversed=True, traj_T=.5, kp=10, dt=0.01, debug=True)
+t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_2(init_reversed=True, tf=1, kp=10, dt=0.01, debug=True, traj_t0=0.1, traj_t1=0.2)
 
 for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max seconds (simulation time)
     cur_time = i*sim_dt

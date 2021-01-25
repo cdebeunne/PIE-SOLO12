@@ -182,7 +182,9 @@ def jumpTrajectory_2(**kwargs):
 
 # function defining the feet's trajectory
 def trajFeet_jump1(t, footId,  **kwargs):
-	T = kwargs.get("traj_T", 2)  # period of the foot trajectory
+	t0 = kwargs.get("traj_t0", 1)  #
+	t1 = kwargs.get("traj_t1", 1)  #
+
 	dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
 	dy = kwargs.get("traj_dy", 0.05)  #
 	dx = kwargs.get("traj_dx", dy)  #
@@ -191,7 +193,7 @@ def trajFeet_jump1(t, footId,  **kwargs):
 	traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
 	traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
 	traj_z0 = kwargs.get("traj_z0", -0.05) # initial distance on the z axis from body
-	traj_zf = kwargs.get("traj_zf", -0.1) # initial distance on the z axis from body
+	traj_zf = kwargs.get("traj_zf", -0.15) # initial distance on the z axis from body
 
 	if traj_z0>=0 or traj_zf>=0:
 		print("traj_z0 or traj_zf might be positive. This may lead to invalid configuration.")
@@ -203,28 +205,30 @@ def trajFeet_jump1(t, footId,  **kwargs):
 	x = x0*1.1
 
 	# If time is overlapping the duration of the sequence, stay in last position
-	if t>T:
-		t=T
+	if t>t0+t1:
+		t=t0+t1
 
 	# First part of the jump, push while staying at same position
-	if t < T/2:
-		z = traj_z0-dz*np.sin(np.pi * t / T)
+	if t < t0:
+		z = traj_z0-dz*np.sin(np.pi/2 * t / t0)
 
 		x = x0
 		y = y0
 	# Second part of the jump, exand feets and retract legs
-	elif t <= T:
+	elif t <= t0+t1:
+		t = t-t0
+
 		if x0>0:
-			x = x0 + dx * np.sin(np.pi * (t-T/2) / T)
+			x = x0 + dx * np.sin(np.pi/2 * t/t1)
 		else:
-			x = x0 - dx * np.sin(np.pi * (t-T/2) / T)
+			x = x0 - dx * np.sin(np.pi/2 * t/t1)
 
 		if y0>0:
-			y = y0 + dy * np.sin(np.pi * (t-T/2) / T)
+			y = y0 + dy * np.sin(np.pi/2 * t/t1)
 		else:
-			y = y0 - dy * np.sin(np.pi * (t-T/2) / T)
+			y = y0 - dy * np.sin(np.pi/2 * t/t1)
 		
-		z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi * t / T)
+		z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi/2 *(1 - t/t1))
 
 	return np.array([x, y, z])
 
