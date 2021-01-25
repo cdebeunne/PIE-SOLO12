@@ -6,6 +6,8 @@ from example_robot_data import loadSolo  # Functions to load the SOLO quadruped
 import pinocchio as pin  # Pinocchio library
 
 def jumpTrajectory_1(q_start, t_crouch, t_jump, t_air, dt):
+	t_traj = np.arange(0, t_crouch+t_jump+t_air, dt)
+
 	# define the different configurations of the jump
 	pos_crouch = np.array([[0, pi/2, -pi], \
 						[0, pi/2, -pi], \
@@ -80,26 +82,38 @@ def jumpTrajectory_1(q_start, t_crouch, t_jump, t_air, dt):
 			gains[:,i] = np.array([0.5,10])
 		else:
 			gains[:,i] = np.array([1,10])
+
+	# Swapping axis to match correct shape
+	q_traj = np.swapaxes(q_traj, 0, 1)
+	qdot_traj = np.swapaxes(qdot_traj, 0, 1)
+	gains = np.swapaxes(gains, 0, 1)
 	
-	return q_traj, qdot_traj, gains
+	return t_traj, q_traj, qdot_traj, gains
 
 
 def jumpTrajectory_2(**kwargs):
+	import time
 	# params: T_sim, 
+	t_traj = np.arange(0, kwargs.get("tf", 10), kwargs.get("dt", .001))
 	q_traj = []
 	qdot_traj = []
 	gains = []
+	
+	t0 = time.time()
+	
+	if kwargs.get("debug", False):
+		print("Computing Trajectory...")
+
+		for key, value in kwargs.items():
+			print("\t", key, ":", value)
 
 	solo = loadSolo(False)
-	solo.initViewer(loadModel=True)
-
-	print(kwargs)
 
 	# Place the robot in a regular configuration
 	solo.q0[2] = 0.
 	for i in range(4):
 		sign = 1 if kwargs.get("init_reversed", False) else -1
-		print(sign)
+		
 		if i<2:
 			solo.q0[7+3*i+1] = +sign*pi/4 
 			solo.q0[7+3*i+2] = -sign*pi/2
@@ -126,42 +140,64 @@ def jumpTrajectory_2(**kwargs):
 	# Run the trajectory definition
 	flag_errTooHigh = False
 	maxE = 0
-	for t in np.arange(0, kwargs['tf'], kwargs['dt']):
+	for t in t_traj:
 		q, q_dot, err = kinInv_3D(q, q_dot, solo, t, trajFeet_jump1, **kwargs)
+		
 		q_traj.append(q)
 		qdot_traj.append(q_dot)
+		gains.append([kwargs.get("kp", 5), kwargs.get("kd", 1)])
 
-		if err>0.5:
+		if err>kwargs.get("max_error", 0.5):
 			flag_errTooHigh = True
 			if err>maxE:
 				maxE = err
 
+	# If a position wasn't reachead, print it
 	if flag_errTooHigh:
 		print("The error was pretty high. Maybe the trajectory is trop ambitious (maxE=",maxE, ")", sep='')
 	
+	# Convert to numpy arrays
 	q_traj = np.array(q_traj)
 	qdot_traj = np.array(qdot_traj)
 	gains = np.array(gains)
 
-	return q_traj, qdot_traj, gains
+	#Initialize angles at zero
+	offsets = np.zeros(q_traj.shape[1])
+	for i in range(q_traj.shape[1]):
+		while abs(q_traj[0][i]-offsets[i]*2*pi) > pi:
+			if q_traj[0][i]>0:
+				offsets[i] += 1
+			else:
+				offsets[i] -= 1
+	
+	for i in range(q_traj.shape[0]):
+		q_traj[i] = q_traj[i]-2*pi*offsets
+	
+	# Print execution time if requiered
+	if kwargs.get("debug", False):
+		print("Done in", time.time()-t0, "s")
+
+	return t_traj, q_traj, qdot_traj, gains
 		
 
 # function defining the feet's trajectory
 def trajFeet_jump1(t, footId,  **kwargs):
 	T = kwargs.get("traj_T", 2)  # period of the foot trajectory
 	dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
-	dy = kwargs.get("traj_dy", 0.1)  #
+	dy = kwargs.get("traj_dy", 0.05)  #
 	dx = kwargs.get("traj_dx", dy)  #
 
 	# Initialization of the variables
 	traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
 	traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
-	traj_z0 = kwargs.get("traj_z0", 0.05) # initial distance on the z axis from body
-	traj_zf = kwargs.get("traj_zf", 0.05) # initial distance on the z axis from body
+	traj_z0 = kwargs.get("traj_z0", -0.05) # initial distance on the z axis from body
+	traj_zf = kwargs.get("traj_zf", -0.1) # initial distance on the z axis from body
+
+	if traj_z0>=0 or traj_zf>=0:
+		print("traj_z0 or traj_zf might be positive. This may lead to invalid configuration.")
 
 	x0 = -traj_x0 if int(footId/2)%2 else traj_x0
 	y0 = -traj_y0 if footId%2 else traj_y0
-	z0 = traj_z0
 
 	x, y, z = [], [], []
 	x = x0*1.1
@@ -172,7 +208,7 @@ def trajFeet_jump1(t, footId,  **kwargs):
 
 	# First part of the jump, push while staying at same position
 	if t < T/2:
-		z = z0-dz*np.sin(np.pi * t / T)
+		z = traj_z0-dz*np.sin(np.pi * t / T)
 
 		x = x0
 		y = y0
@@ -188,7 +224,7 @@ def trajFeet_jump1(t, footId,  **kwargs):
 		else:
 			y = y0 - dy * np.sin(np.pi * (t-T/2) / T)
 		
-		z = -traj_zf + (traj_zf-traj_z0-dz)*np.cos(np.pi * t / T)
+		z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi * t / T)
 
 	return np.array([x, y, z])
 
@@ -296,10 +332,7 @@ if __name__ == '__main__':
 	dt = 0.01
 	t = np.arange(0, 10, dt)
 	
-	print("Computing Trajectory...")
-	t0 = time.time()
-	q_traj = jumpTrajectory_2(init_reversed=True, tf=10, dt=dt, T=2)[0]
-	print("Done in", time.time()-t0, "s")
+	q_traj = jumpTrajectory_2(init_reversed=True, tf=2, dt=dt, debug=True)[1]
 
 	solo = loadSolo(False)
 	solo.initViewer(loadModel=True)

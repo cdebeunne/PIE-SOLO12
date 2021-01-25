@@ -16,13 +16,13 @@ import pybullet as p  # PyBullet simulator
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
 sim_dt = 0.0001  # time step of the simulation
-sim_tfinal = 5 # end time of the simulation
+sim_tfinal = 50 # end time of the simulation
 sim_gravity_enable = True
 # If True then we will sleep in the main loop to have a 1:1 ratio of (elapsed real time / elapsed time in the
 # simulation)
 sim_realTime_enable = True
 sim_slowMotion_enable = False
-sim_slowMotion_ratio = 10
+sim_slowMotion_ratio = 100
 
 enableGUI = True  # enable PyBullet GUI or not
 robotId, solo, revoluteJointIndices = configure_simulation(sim_dt, enableGUI, sim_gravity_enable)
@@ -42,7 +42,10 @@ from .controller import *
 isCrouched = False
 inAir = False 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
-q_traj, qdot_traj, gains = jumpTrajectory(q, 1.5,1.65,2, sim_dt)
+
+# Compute Joint Trajectory
+t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_1(q, 1, 2, 3, 10*sim_dt)
+t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_2(init_reversed=True, traj_T=.5, kp=10, dt=0.01, debug=True)
 
 for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max seconds (simulation time)
     cur_time = i*sim_dt
@@ -55,15 +58,15 @@ for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max 
     q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
     # Call controller to get torques for all joints
-    #jointTorques, isCrouched, inAir = jump(q, qdot, solo, sim_dt, isCrouched, inAir)
-    jointTorques = splineJump(q, qdot, solo, q_traj, qdot_traj, gains, i, sim_dt)
+    jointTorques = control_traj(q, qdot, solo, t_traj, q_traj, qdot_traj, gains_traj, cur_time, sim_dt)
 
     # Set control torques for all joints in PyBullet
     p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
 
     # Compute one step of simulation
     p.stepSimulation()
-    solo.display(q)
+    if enableGUI:
+        solo.display(q)
 
     # Sleep to get a real time simulation
     if sim_realTime_enable:
