@@ -5,16 +5,16 @@ import pybullet_data
 from example_robot_data import loadSolo  # Functions to load the SOLO quadruped
 
 import pybullet as p  # PyBullet simulator
+import time
 
-
-def configure_simulation(dt, enableGUI, enableGravity):
+def configure_simulation(**kwargs):
     global jointTorques
     # Load the robot for Pinocchio
     solo = loadSolo(False)
     solo.initDisplay(loadModel=True)
 
     # Start the client for PyBullet
-    if enableGUI:
+    if kwargs.get("enableGUI", False):
         physicsClient = p.connect(p.GUI)
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
     else:
@@ -23,7 +23,7 @@ def configure_simulation(dt, enableGUI, enableGravity):
     # p.DIRECT for non-graphical version
 
     # Set gravity (disabled by default)
-    if enableGravity:
+    if kwargs.get("enableGravity", True):
         p.setGravity(0, 0, -9.81)
     else:
         p.setGravity(0, 0, 0)
@@ -33,18 +33,15 @@ def configure_simulation(dt, enableGUI, enableGravity):
     p.loadURDF("plane.urdf")
 
     # Load the robot for PyBullet
-    robotStartPos = [0, 0, 0.35]
+    robotStartPos = [0, 0, 1.5]
     robotStartOrientation = p.getQuaternionFromEuler([0, 0, 0])
     p.setAdditionalSearchPath("/opt/openrobots/share/example-robot-data/robots/solo_description/robots")
     robotId = p.loadURDF("solo12.urdf", robotStartPos, robotStartOrientation)
-
+    
     # Set time step of the simulation
-    # dt = 0.001
-    p.setTimeStep(dt)
-    # realTimeSimulation = True # If True then we will sleep in the main loop to have a frequency of 1/dt
+    p.setTimeStep(kwargs.get("dt", 0.0001))
 
     # Disable default motor control for revolute joints
-    #revoluteJointIndices = [0, 1, 3, 4, 6, 7, 9, 10, 12, 13]
     revoluteJointIndices = [0,1,2, 4,5,6, 8,9,10, 12,13,14]
     p.setJointMotorControlArray(robotId,
                                 jointIndices=revoluteJointIndices,
@@ -64,7 +61,6 @@ def configure_simulation(dt, enableGUI, enableGravity):
 
 # Function to get the position/velocity of the base and the angular position/velocity of all joints
 def getPosVelJoints(robotId, revoluteJointIndices):
-
     jointStates = p.getJointStates(robotId, revoluteJointIndices)  # State of all joints
     baseState = p.getBasePositionAndOrientation(robotId)  # Position of the free flying base
     baseVel = p.getBaseVelocity(robotId)  # Velocity of the free flying base

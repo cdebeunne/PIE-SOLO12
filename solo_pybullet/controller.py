@@ -97,7 +97,7 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 		else:
 			print("Dimensions of q_traj are not supported.")
 
-		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=1, Kd=0.5, torque_sat=0.5, torques_ref=torques_ref)
+		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=1, Kd=0.5, torque_sat=torque_sat, torques_ref=torques_ref)
 
 		# If it is reached, continue
 		if np.linalg.norm(qa_ref-qa) < threshold:
