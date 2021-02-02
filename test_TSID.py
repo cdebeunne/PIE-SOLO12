@@ -29,24 +29,40 @@ ID_FL = solo12_model.getFrameId("FL_FOOT")
 ID_FR = solo12_model.getFrameId("FR_FOOT")
 ID_HL = solo12_model.getFrameId("HL_FOOT")
 ID_HR = solo12_model.getFrameId("HR_FOOT")
+ID_BASE = solo12_model.getFrameId("base_link")
 
 # formulate the problem
 
 formulation = tsid.InverseDynamicsFormulationAccForce("tsid", solo12_wrapper, False)
-q0 = solo12_model.referenceConfigurations["straight_standing"]
+q0 = solo12_model.referenceConfigurations["standing"]
 v0 = np.zeros(solo12_model.nv)
 formulation.computeProblemData(0.0, q0, v0)
 data = formulation.data()
 
-kp_com = 1
+# create the com task
+
+kp_com = 10
 w_com = 1
 comTask = tsid.TaskComEquality("task-com", solo12_wrapper)
 comTask.setKp(kp_com * np.ones(3).T)
 comTask.setKd(2*np.sqrt(kp_com) * np.ones(3).T)
 formulation.addMotionTask(comTask, w_com, 1, 0.0)
 com_ref = solo12_wrapper.com(data)
-trajCom = tsid.TrajectoryEuclidianConstant("traj_com", com_ref)
+trajCom = tsid.TrajectoryEuclidianConstant("traj-com", com_ref)
 
+# create the SE3 task
+
+kp_trunk = 50
+w_trunk = 1
+trunkTask = tsid.TaskSE3Equality("task-trunk", solo12_wrapper, 'base_link')
+mask = np.matrix([1.0, 1.0, 0.0, 1.0, 1.0, 1.0]).T
+trunkTask.setKp(np.matrix([0.0, 0.0, 0.0, kp_trunk, kp_trunk, 0.0]).T)
+trunkTask.setKd(np.matrix([0.0, 0.0, 0.0, 2.0 * np.sqrt(kp_trunk), 2.0 * np.sqrt(kp_trunk), 0.0]).T)
+trunkTask.useLocalFrame(False)
+trunkTask.setMask(mask)
+formulation.addMotionTask(trunkTask, w_trunk, 1, 0.0)
+trunk_ref = solo12_wrapper.framePosition(data, ID_BASE)
+trajTrunk = tsid.TrajectorySE3Constant("traj_base_link", trunk_ref)
 
 # Create linear trajectory
 
@@ -56,24 +72,20 @@ q      = np.full((solo12_wrapper.nq, N_simu + 1), np.nan)
 v      = np.full((solo12_wrapper.nv, N_simu + 1), np.nan)
 dv     = np.full((solo12_wrapper.nv, N_simu + 1), np.nan)
 com_start = com_ref
-print(com_ref)
-com_end = com_ref + np.array([0,0,0.005])
-com_traj  = np.full((3, N_simu), np.nan)
-comv_traj  = np.full((3, N_simu), np.nan)
-comdv_traj = np.full((3, N_simu), np.nan)
-for i in range(N_simu):
-	t = i/N_simu
-	com_traj[:,i] = com_end*t + com_start*(1-t)
-	comv_traj[:,i] = com_end - com_start
-	comdv_traj[:,i] = np.zeros(3)
+com_end = com_ref - np.array([0,0,0.05])
+
 sampleCom = trajCom.computeNext()
+sampleCom.pos(com_end)
+sampleCom.vel(np.zeros(3))
+sampleCom.acc(np.zeros(3))
+sampleTrunk = trajTrunk.computeNext()
+sampleTrunk.pos(np.matrix([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]).T)
+sampleTrunk.vel(np.matrix([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T)
+sampleTrunk.acc(np.matrix([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T)
+comTask.setReference(sampleCom)
+trunkTask.setReference(sampleTrunk)
 
-# initialize solver
-
-solver = tsid.SolverHQuadProgFast("qp solver")
-solver.resize(formulation.nVar, formulation.nEq, formulation.nIn)
-
-# create contact force
+# create contact forces
 contactNormal = np.array([0,0,1])
 kp_contact = 30
 mu = 0.5
@@ -106,24 +118,36 @@ hl_ref = solo12_wrapper.framePosition(data, ID_HL)
 contactHL.setReference(hl_ref)
 formulation.addRigidContact(contactHL, 10)
 
+# initialize solver
+
+solver = tsid.SolverHQuadProgFast("qp solver")
+solver.resize(formulation.nVar, formulation.nEq, formulation.nIn)
 
 # launch simu
 
 t = 0.0
 dt = 1e-3
 q[:, 0], v[:, 0] = q0, v0
+p1 = False;
 
 for i in range(N_simu):
     time_start = time.time()
     
-    # set reference trajectory
-    sampleCom.pos(com_traj[:, i])
-    sampleCom.vel(comv_traj[:, i])
-    sampleCom.acc(comdv_traj[:, i])
-    comTask.setReference(sampleCom)
-    
+    if i==500:
+        kp_com = 100
+        com_end = com_ref + np.array([0,0,0.05])
+        sampleCom = trajCom.computeNext()
+        sampleCom.pos(com_end)
+        sampleCom.vel(np.matrix([0.0,0.0,1.0]).T)
+        sampleCom.acc(np.zeros(3))
+        comTask.setKp(kp_com * np.ones(3).T)
+        comTask.setKd(2*np.sqrt(kp_com) * np.ones(3).T)
+        comTask.setReference(sampleCom)
+
+	
     HQPData = formulation.computeProblemData(t, q[:,i], v[:,i])
     sol = solver.solve(HQPData)
+    
     if sol.status != 0:
         print("Time %.3f QP problem could not be solved! Error code:" % t, sol.status)
         break
