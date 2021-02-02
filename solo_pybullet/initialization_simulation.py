@@ -33,7 +33,7 @@ def configure_simulation(**kwargs):
     p.loadURDF("plane.urdf")
 
     # Load the robot for PyBullet
-    robotStartPos = [0, 0, 1.5]
+    robotStartPos = [0, 0, 0.35]
     robotStartOrientation = p.getQuaternionFromEuler([0, 0, 0])
     p.setAdditionalSearchPath("/opt/openrobots/share/example-robot-data/robots/solo_description/robots")
     robotId = p.loadURDF("solo12.urdf", robotStartPos, robotStartOrientation)
