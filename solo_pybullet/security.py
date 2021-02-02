@@ -6,10 +6,10 @@ def check_integrity(solo, q, q_dot):
         return True
 
     # Position limits for actuators
-    qa_lim = np.array([[-90, 90], [-175, 175], [0, 0]])
+    qa_lim = np.array([[-75, 140], [-180, 180], [0, 0]])
     qa_lim = np.deg2rad(qa_lim)
     # Speed limits for actuators
-    qa_dot_lim = np.array([90, 270, 360])
+    qa_dot_lim = np.array([360, 720, 1080])
     qa_dot_lim = np.deg2rad(qa_dot_lim)
     
     contacts = p.getContactPoints()
@@ -47,4 +47,4 @@ def check_integrity(solo, q, q_dot):
 check_integrity.flag_contact = False
 check_integrity.flag_limit = False
 check_integrity.flag_limit_dot = False
-check_integrity.spam = False
+check_integrity.spam = True

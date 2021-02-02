@@ -240,8 +240,8 @@ def trajFeet_jump1(t, footId,  **kwargs):
 		
 		z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi/2 *(1 - t/t1))
 
-		gains[0] = param_kps[0]
-		gains[1] = param_kds[0]
+		gains[0] = param_kps[1]
+		gains[1] = param_kds[1]
 
 	return np.array([x, y, z]), gains
 

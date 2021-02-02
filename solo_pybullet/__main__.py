@@ -43,7 +43,7 @@ from .security import check_integrity
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
 # Compute Joint Trajectory
-kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.25, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.2, "kps":[10, 5], "kds":[0.1, 2]}
+kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
 kwargs_kininv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True}
 
 kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
