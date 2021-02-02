@@ -19,8 +19,8 @@ from .initialization_simulation import configure_simulation, getPosVelJoints
 ######################
 
 # Parameters for 
-kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
-kwargs_kininv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True}
+kwargs_trajec = {"traj_dx0":0.05, "traj_t1":0.2, "traj_t2":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
+kwargs_kininv = {"init_reversed":False, "tf":3, "dt":0.01, "debug":True}
 
 # Compute Joint Trajectory
 kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
@@ -32,14 +32,17 @@ t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_2(**kwargs_jumpin)
 
 # MatplotLib must be imported after Pybullet as been initialized in order to solve conflicts.
 
-kwargs_simu = {"dt":0.0001, "max_time":5, "enableGravity":True, "realTime":False, "enableGUI":True, "slowMo":False, "slowMoRatio":100}
+kwargs_simu = {"dt":0.0001, "max_time":5, "enableGravity":True, "realTime":False, "enableGUI":False, "slowMo":False, "slowMoRatio":100}
 robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
 
 ###############
-#  MAIN LOOP ##
+#  MAIN LOOP  #
 ###############
 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
+
+height = []
+qdot_plot = []
 
 cur_time = 0
 while not control_traj.ended:
@@ -62,6 +65,9 @@ while not control_traj.ended:
     p.stepSimulation()
 
     check_integrity(solo, q, qdot)
+    if control_traj.initialized:
+        height.append(q[2])
+        qdot_plot.append(qdot[6+5])
 
     if kwargs_simu.get("enableGUI", False):
         solo.display(q)
