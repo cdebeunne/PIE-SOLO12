@@ -15,7 +15,7 @@ WITHDISPLAY = 'display' in sys.argv or 'CROCODDYL_DISPLAY' in os.environ
 WITHPLOT = 'plot' in sys.argv or 'CROCODDYL_PLOT' in os.environ
 
 # Loading the solo model
-solo = example_robot_data.loadSolo()
+solo = example_robot_data.loadSolo(False)
 robot_model = solo.model
 lims = robot_model.effortLimit
 
@@ -29,11 +29,13 @@ v0 = pinocchio.utils.zero(robot_model.nv)
 x0 = np.concatenate([q0, v0])
 
 # Defining the CoM gait parameters
-CoM_gait = {'comGoTo': 10, 'timeStep': 1e-2, 'numKnots': 25}
+Jumping_gait = {'jumpHeight': 0.5, 'jumpLength': [0,0,0.5], 'timeStep': 1e-2, 'groundKnots': 25, 'flyingKnots': 25}
 
 # Setting up the control-limited DDP solver
 boxddp = crocoddyl.SolverBoxDDP(
-    gait.createCoMGoalProblem(x0, CoM_gait['comGoTo'], CoM_gait['timeStep'],CoM_gait['numKnots']))
+    gait.createJumpingProblem(x0, Jumping_gait['jumpHeight'], Jumping_gait['jumpLength'], 
+                                    Jumping_gait['timeStep'], Jumping_gait['groundKnots'],
+                                    Jumping_gait['flyingKnots']))
 
 # Add the callback functions
 print('*** SOLVE ***')
