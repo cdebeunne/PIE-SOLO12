@@ -9,7 +9,7 @@ import time
 
 from .trajectory import jumpTrajectory_1, jumpTrajectory_2
 from .controller import control_traj
-from .security import check_integrity
+from .security import check_integrity, showIntegrity
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
@@ -74,3 +74,5 @@ while not control_traj.ended:
 
 # Shut down the PyBullet client
 p.disconnect()
+
+showIntegrity()

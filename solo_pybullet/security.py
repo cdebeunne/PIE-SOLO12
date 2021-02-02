@@ -48,3 +48,13 @@ check_integrity.flag_contact = False
 check_integrity.flag_limit = False
 check_integrity.flag_limit_dot = False
 check_integrity.spam = True
+
+def showIntegrity():
+    if check_integrity.flag_contact:
+        print("A contact occured.")
+
+    if check_integrity.flag_limit:
+        print("Went too far occured.")
+        
+    if check_integrity.flag_limit_dot:
+        print("Went too fast occured.")
