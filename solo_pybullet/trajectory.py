@@ -93,7 +93,7 @@ def jumpTrajectory_1(q_start, t_crouch, t_jump, t_air, dt):
 
 def jumpTrajectory_2(**kwargs):
 	import time
-	# params: T_sim, 
+	# params: tf, dt, kp, kd, kps, kds, debug, init_reversed, max_error
 	t_traj = np.arange(0, kwargs.get("tf", 10), kwargs.get("dt", .001))
 	q_traj = []
 	qdot_traj = []
@@ -127,7 +127,7 @@ def jumpTrajectory_2(**kwargs):
 	# Reach the initial position first
 	step = 0
 	while True:
-		q, q_dot, err  = kinInv_3D(q, q_dot, solo, 0, trajFeet_jump1, **kwargs)
+		q, q_dot, gain, err  = kinInv_3D(q, q_dot, solo, 0, trajFeet_jump1, **kwargs)
 		if err<10**(-10):
 			break
 
@@ -141,11 +141,11 @@ def jumpTrajectory_2(**kwargs):
 	flag_errTooHigh = False
 	maxE = 0
 	for t in t_traj:
-		q, q_dot, err = kinInv_3D(q, q_dot, solo, t, trajFeet_jump1, **kwargs)
+		q, q_dot, gain, err = kinInv_3D(q, q_dot, solo, t, trajFeet_jump1, **kwargs)
 		
 		q_traj.append(q)
 		qdot_traj.append(q_dot)
-		gains.append([kwargs.get("kp", 5), kwargs.get("kd", 1)])
+		gains.append(gain)
 
 		if err>kwargs.get("max_error", 0.5):
 			flag_errTooHigh = True
@@ -182,12 +182,18 @@ def jumpTrajectory_2(**kwargs):
 
 # function defining the feet's trajectory
 def trajFeet_jump1(t, footId,  **kwargs):
-	t0 = kwargs.get("traj_t0", 1)  #
-	t1 = kwargs.get("traj_t1", 1)  #
+	t0 = kwargs.get("traj_t0", 1)  # Duration of first step (extension of legs)
+	t1 = kwargs.get("traj_t1", 1)  # Duration of second step (spreading legs)
 
 	dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
-	dy = kwargs.get("traj_dy", 0.05)  #
-	dx = kwargs.get("traj_dx", dy)  #
+	dy = kwargs.get("traj_dy", 0.05)  # displacement amplitude by y
+	dx = kwargs.get("traj_dx", dy)    # displacement amplitude by x
+
+	# Gains parameters
+	param_kp = kwargs.get("kp", 5)	# default parameter of kp
+	param_kd = kwargs.get("kd", 1)	# default parameter of kd
+	param_kps = kwargs.get("kps", [param_kp, param_kp])	# default parameter of kps
+	param_kds = kwargs.get("kds", [param_kp, param_kd])	# default parameter of kds
 
 	# Initialization of the variables
 	traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
@@ -201,7 +207,8 @@ def trajFeet_jump1(t, footId,  **kwargs):
 	x0 = -traj_x0 if int(footId/2)%2 else traj_x0
 	y0 = -traj_y0 if footId%2 else traj_y0
 
-	x, y, z = [], [], []
+	x, y, z = 0, 0, 0
+	gains = [0, 0]
 	x = x0*1.1
 
 	# If time is overlapping the duration of the sequence, stay in last position
@@ -214,6 +221,9 @@ def trajFeet_jump1(t, footId,  **kwargs):
 
 		x = x0
 		y = y0
+
+		gains[0] = param_kps[0]
+		gains[1] = param_kds[0]
 	# Second part of the jump, exand feets and retract legs
 	elif t <= t0+t1:
 		t = t-t0
@@ -230,7 +240,10 @@ def trajFeet_jump1(t, footId,  **kwargs):
 		
 		z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi/2 *(1 - t/t1))
 
-	return np.array([x, y, z])
+		gains[0] = param_kps[0]
+		gains[1] = param_kds[0]
+
+	return np.array([x, y, z]), gains
 
 
 
@@ -273,10 +286,10 @@ def kinInv_3D(q, qdot, solo, t_simu, ftraj, **kwargs):
 	xyz_HR = solo.data.oMf[ID_HR].translation
 
 	# Desired foot trajectory
-	xyzdes_FL = ftraj(t_simu, 0, **kwargs)
-	xyzdes_FR = ftraj(t_simu, 1, **kwargs)
-	xyzdes_HL = ftraj(t_simu, 2, **kwargs)
-	xyzdes_HR = ftraj(t_simu, 3, **kwargs)
+	xyzdes_FL = ftraj(t_simu, 0, **kwargs)[0]
+	xyzdes_FR = ftraj(t_simu, 1, **kwargs)[0]
+	xyzdes_HL = ftraj(t_simu, 2, **kwargs)[0]
+	xyzdes_HR = ftraj(t_simu, 3, **kwargs)[0]
 
 	# Calculating the error
 	err_FL = (xyz_FL - xyzdes_FL)
@@ -324,10 +337,11 @@ def kinInv_3D(q, qdot, solo, t_simu, ftraj, **kwargs):
 	qa_ref = q_ref[7:].reshape(12,1)
 
 	# Return configuration of the robot
+	gains = ftraj(t_simu, 0, **kwargs)[1]
 	q_dot_ref = np.squeeze(np.array(q_dot_ref))
 	err = np.linalg.norm(nu)
 
-	return q_ref, q_dot_ref, err
+	return q_ref, q_dot_ref, gains, err
 
 
 if __name__ == '__main__':

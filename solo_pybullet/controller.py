@@ -95,13 +95,13 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 			qa_ref = qa_traj[0].reshape((12, 1))
 			qadot_ref = qadot_traj[0].reshape((12, 1))
 		else:
-			print("C'est la merde.")
+			print("Dimensions of q_traj are not supported.")
 
-		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=gains_traj[0, 0], Kd=gains_traj[0, 1], torque_sat=torque_sat, torques_ref=torques_ref)
+		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=1, Kd=0.5, torque_sat=0.5, torques_ref=torques_ref)
 
 		# If it is reached, continue
 		if np.linalg.norm(qa_ref-qa) < threshold:
-			print('Reached first state.')
+			print('Reached first state in {0:3.2f} s.'.format(t))
 			control_traj.initialized = True
 	
 	# Then run the trajectory
@@ -126,7 +126,7 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 			qa_ref = qa_traj[index].reshape((12, 1))
 			qadot_ref = qadot_traj[index].reshape((12, 1))
 		else:
-			print("C'est la merde.")
+			print("Dimensions of q_traj are not supported.")
 
 		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=gains_traj[index, 0], Kd=gains_traj[index, 1], torque_sat=torque_sat, torques_ref=torques_ref)
 	

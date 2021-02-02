@@ -20,7 +20,7 @@ sim_tfinal = 5 # end time of the simulation
 sim_gravity_enable = True
 # If True then we will sleep in the main loop to have a 1:1 ratio of (elapsed real time / elapsed time in the
 # simulation)
-sim_realTime_enable = True
+sim_realTime_enable = False
 sim_slowMotion_enable = False
 sim_slowMotion_ratio = 100
 
@@ -43,8 +43,11 @@ from .security import check_integrity
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
 # Compute Joint Trajectory
-t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_1(q, 1, 2, 3, 10*sim_dt)
-t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_2(init_reversed=False, tf=1, kp=10, dt=0.01, debug=True, traj_dx0=0.1, traj_t0=0.1, traj_t1=0.2, traj_zf=-0.2)
+kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.25, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.2, "kps":[10, 5], "kds":[0.1, 2]}
+kwargs_kininv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True}
+
+kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
+t_traj, q_traj, qdot_traj, gains_traj = jumpTrajectory_2(**kwargs_jumpin)
 
 for i in range(int(sim_tfinal/sim_dt)):  # run the simulation during dt * i_max seconds (simulation time)
     cur_time = i*sim_dt
