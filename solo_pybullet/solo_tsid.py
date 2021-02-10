@@ -7,7 +7,7 @@ import pinocchio as pin
 import tsid
 
 
-class solo_tsid:
+class SoloTSID:
     ''' Standard TSID formulation for a quadruped robot standing on its punctual feet.
         - Center of mass task
         - SE3 base task
