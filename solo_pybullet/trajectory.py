@@ -184,8 +184,9 @@ def jumpTrajectory_2(**kwargs):
 
 # function defining the feet's trajectory
 def trajFeet_jump1(t, footId,  **kwargs):
-	t0 = kwargs.get("traj_t0", 1)  # Duration of first step (extension of legs)
-	t1 = kwargs.get("traj_t1", 1)  # Duration of second step (spreading legs)
+	t0 = kwargs.get("traj_t0", 1)  # Duration of initialisation step
+	t1 = kwargs.get("traj_t1", 1)  # Duration of first step (extension of legs)
+	t2 = kwargs.get("traj_t2", 1)  # Duration of second step (spreading legs)
 
 	dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
 	dy = kwargs.get("traj_dy", 0.05)  # displacement amplitude by y
@@ -211,36 +212,45 @@ def trajFeet_jump1(t, footId,  **kwargs):
 
 	x, y, z = 0, 0, 0
 	gains = [0, 0]
-	x = x0*1.1
 
 	# If time is overlapping the duration of the sequence, stay in last position
-	if t>t0+t1:
-		t=t0+t1
+	if t>t0+t1+t2:
+		t=t0+t1+t2
 
 	# First part of the jump, push while staying at same position
 	if t < t0:
-		z = traj_z0-dz*np.sin(np.pi/2 * t / t0)
+		z = traj_z0-dz/2*np.cos(np.pi/2 * t/t0)
+
+		x = x0
+		y = y0
+
+		gains[0] = 10
+		gains[1] = 5
+	# Second part of the jump, push while staying at same position
+	elif t < t0+t1:
+		t = t-t0
+		z = traj_z0-dz*np.sin(np.pi/2 * t/t1)
 
 		x = x0
 		y = y0
 
 		gains[0] = param_kps[0]
 		gains[1] = param_kds[0]
-	# Second part of the jump, exand feets and retract legs
-	elif t <= t0+t1:
-		t = t-t0
+	# Third part of the jump, extend feet and retract legs
+	elif t <= t0+t1+t2:
+		t = t-(t0+t1)
 
 		if x0>0:
-			x = x0 + dx * np.sin(np.pi/2 * t/t1)
+			x = x0 + dx * np.sin(np.pi/2 * t/t2)
 		else:
-			x = x0 - dx * np.sin(np.pi/2 * t/t1)
+			x = x0 - dx * np.sin(np.pi/2 * t/t2)
 
 		if y0>0:
-			y = y0 + dy * np.sin(np.pi/2 * t/t1)
+			y = y0 + dy * np.sin(np.pi/2 * t/t2)
 		else:
-			y = y0 - dy * np.sin(np.pi/2 * t/t1)
+			y = y0 - dy * np.sin(np.pi/2 * t/t2)
 		
-		z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi/2 *(1 - t/t1))
+		z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi/2 *(1 - t/t2))
 
 		gains[0] = param_kps[1]
 		gains[1] = param_kds[1]

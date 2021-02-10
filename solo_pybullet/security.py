@@ -2,10 +2,7 @@ import pybullet as p
 import numpy as np
 
 def check_integrity(solo, q, q_dot):
-    if not check_integrity.spam and (check_integrity.flag_contact or check_integrity.flag_limit or check_integrity.flag_limit_dot):
-        return True
-
-    # Position limits for actuators
+    # Angle limits for actuators
     qa_lim = np.array([[-75, 140], [-180, 180], [0, 0]])
     qa_lim = np.deg2rad(qa_lim)
     # Speed limits for actuators
@@ -33,18 +30,56 @@ def check_integrity(solo, q, q_dot):
     for leg in range(4):
         for i in range(3):
             q = qa[3*leg+i]
+            q_max = check_integrity.maxAngle[3*leg+i]
+            if q>q_max:
+                check_integrity.maxAngle[3*leg+i] = q
             if (qa_lim[i, 0] and q<qa_lim[i, 0]) or (qa_lim[i, 1] and q>qa_lim[i, 1]):
-                print("Went to far on leg {0} joint {1} (id={2}): {3}° ({4}°).".format(leg, i, 3*leg+i, np.rad2deg(q), np.rad2deg(qa_lim[i])))
+                #print("Went to far on leg {0} joint {1} (id={2}): {3}° ({4}°).".format(leg, i, 3*leg+i, np.rad2deg(q), np.rad2deg(qa_lim[i])))
                 check_integrity.flag_limit = True
 
             qdot = qa_dot[3*leg+i]
+            qdot_max = check_integrity.maxSpeed[3*leg+i]
+            if qdot > qdot_max:
+                check_integrity.maxSpeed[3*leg+i] = qdot
             if (qa_dot_lim[i] and abs(qdot)>qa_dot_lim[i]):
-                print("Went to fast on leg {0} joint {1} (id={2}): {3} °/s ({4} °/s).".format(leg, i, 3*leg+i, np.rad2deg(qdot), np.rad2deg(qa_dot_lim[i])))
+                #print("Went to fast on leg {0} joint {1} (id={2}): {3} °/s ({4} °/s).".format(leg, i, 3*leg+i, np.rad2deg(qdot), np.rad2deg(qa_dot_lim[i])))
                 check_integrity.flag_limit_dot = True
     
-    return False
+    if (check_integrity.flag_contact or check_integrity.flag_limit or check_integrity.flag_limit_dot):
+        return True
+    else:
+        return False
 
 check_integrity.flag_contact = False
 check_integrity.flag_limit = False
 check_integrity.flag_limit_dot = False
-check_integrity.spam = True
+check_integrity.maxAngle = np.zeros(12)
+check_integrity.maxSpeed = np.zeros(12)
+
+
+def showIntegrity():
+    # Angle limits for actuators
+    qa_lim = np.array([[-75, 140], [-180, 180], [0, 0]])
+    qa_lim = np.deg2rad(qa_lim)
+    # Speed limits for actuators
+    qa_dot_lim = np.array([360, 720, 1080])
+    qa_dot_lim = np.deg2rad(qa_dot_lim)
+
+    if check_integrity.flag_contact:
+        print("A contact occured.")
+
+    if check_integrity.flag_limit:
+        print("Went too far occured.")
+        for leg in range(4):
+            for i in range(3):
+                q = check_integrity.maxAngle[3*leg+i]
+                if (qa_lim[i, 0] and q<qa_lim[i, 0]) or (qa_lim[i, 1] and q>qa_lim[i, 1]):
+                    print("Went to far on leg {0} joint {1} (id={2}): {3}° ({4}°).".format(leg, i, 3*leg+i, np.rad2deg(q), np.rad2deg(qa_lim[i])))
+
+    if check_integrity.flag_limit_dot:
+        print("Joint was too speed:")
+        for leg in range(4):
+            for i in range(3):
+                qdot = check_integrity.maxSpeed[3*leg+i]
+                if (qa_dot_lim[i] and abs(qdot)>qa_dot_lim[i]):
+                    print("  Went to fast on leg {0} joint {1} (id={2}): {3} °/s ({4} °/s).".format(leg, i, 3*leg+i, np.rad2deg(qdot), np.rad2deg(qa_dot_lim[i])))
