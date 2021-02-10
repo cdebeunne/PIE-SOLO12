@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy import interpolate
 from math import pi
-import solo_tsid
+import solo_pybullet.solo_tsid as solo_tsid
 import time
 from example_robot_data import loadSolo  # Functions to load the SOLO quadruped
 import pinocchio as pin  # Pinocchio library
@@ -367,19 +367,21 @@ def TSID_traj(**kwargs):
 
 	# initalize trajectories
 
-    N_simu = 1500
+    N_simu = 15000
     tau    = np.full((tsid.solo12_wrapper.na, N_simu), np.nan)
     q      = np.full((tsid.solo12_wrapper.nq, N_simu + 1), np.nan)
     v      = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
     dv     = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
+    gains = np.zeros((2,N_simu+1))
     t_traj = np.full(N_simu+1, np.nan)
 
 	# launch simu
 
     t = 0.0
-    dt = 1e-3
+    dt = 1e-4
     t_traj[0] = t
     q[:, 0], v[:, 0] = tsid.q0, tsid.v0
+    gains[:,0] = np.array([param_kp, param_kd])
 
     for i in range(N_simu-2):
         time_start = time.time()
@@ -392,8 +394,6 @@ def TSID_traj(**kwargs):
         deltaCom2 = abs(com[2] - comObj2[2])
         if deltaCom1 < 2e-2:
             tsid.setCOMRef(np.array([0.0,0.0,0.1]).T, np.array([0.0,0.0,param_vertVel]), np.zeros(3))
-        else:
-            print(deltaCom1)
 		
         if deltaCom2 < 1e-2:
             break
@@ -409,6 +409,9 @@ def TSID_traj(**kwargs):
         q[:,i + 1], v[:,i + 1] = tsid.integrate_dv(q[:,i], v[:,i], dv[:,i], dt)
         t += dt
         t_traj[i+1] = t
+        
+        # set the gains
+        gains[:,i+1] = np.array([param_kd, param_kp])
 		
         if (param_disp):
             solo12.display(q[:,i])
@@ -418,11 +421,12 @@ def TSID_traj(**kwargs):
     q[:, i+1], v[:, i+1] = tsid.q0, tsid.v0
     tau[:, i+1] = np.zeros(tsid.solo12_wrapper.na)
     
-    # we set the gains
-    kp_gains = np.full(i+1, param_kp)
-    kd_gains = np.full(i+1, param_kd)
+    # swapaxes
+    q_traj = np.swapaxes(q[:,0:i+2], 0, 1)
+    qdot_traj = np.swapaxes(v[:,0:i+2], 0, 1)
+    gains_traj = np.swapaxes(gains, 0, 1)
 			
-    return t_traj[0:i+1], q[:,0:i+1], v[:,0:i+1], tau[:, 0:i+1]
+    return t_traj[0:i+2], q_traj, qdot_traj, tau[:, 0:i+1], gains_traj[0:i+2,:]
 
 
 if __name__ == '__main__':
