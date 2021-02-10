@@ -345,8 +345,14 @@ def kinInv_3D(q, qdot, solo, t_simu, ftraj, **kwargs):
 
 	return q_ref, q_dot_ref, gains, err
 
-def TSID_traj(verticalSpeed, disp):
-    if (disp):
+def TSID_traj(**kwargs):
+	# param disp, verticalVelocity, kp, kd
+    param_kp = kwargs.get("kp", 5)	
+    param_kd = kwargs.get("kd", 1)
+    param_disp = kwargs.get("disp", False)
+    param_vertVel = kwargs.get("verticalVelocity", 0.1)
+	
+    if (param_disp):
         solo12 = loadSolo(False)
         solo12.initViewer(loadModel=True)
         
@@ -357,7 +363,7 @@ def TSID_traj(verticalSpeed, disp):
     tsid.setBaseRef()
 
     comObj1 = tsid.getCOM()+np.array([0.0,0.0,-0.05]).T
-    comObj2 = tsid.getCOM()+np.array([0.0,0.0,+0.09]).T
+    comObj2 = tsid.getCOM()+np.array([0.0,0.0,0.09]).T
 
 	# initalize trajectories
 
@@ -385,7 +391,7 @@ def TSID_traj(verticalSpeed, disp):
         deltaCom1 = abs(com[2] - comObj1[2])
         deltaCom2 = abs(com[2] - comObj2[2])
         if deltaCom1 < 2e-2:
-            tsid.setCOMRef(np.array([0.0,0.0,0.1]).T, np.array([0.0,0.0,+0.1]), np.zeros(3))
+            tsid.setCOMRef(np.array([0.0,0.0,0.1]).T, np.array([0.0,0.0,param_vertVel]), np.zeros(3))
         else:
             print(deltaCom1)
 		
@@ -404,13 +410,17 @@ def TSID_traj(verticalSpeed, disp):
         t += dt
         t_traj[i+1] = t
 		
-        if (disp):
+        if (param_disp):
             solo12.display(q[:,i])
             time.sleep(1e-3)
     
     # we add the last configuration 
     q[:, i+1], v[:, i+1] = tsid.q0, tsid.v0
     tau[:, i+1] = np.zeros(tsid.solo12_wrapper.na)
+    
+    # we set the gains
+    kp_gains = np.full(i+1, param_kp)
+    kd_gains = np.full(i+1, param_kd)
 			
     return t_traj[0:i+1], q[:,0:i+1], v[:,0:i+1], tau[:, 0:i+1]
 
