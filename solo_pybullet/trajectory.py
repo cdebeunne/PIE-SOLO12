@@ -2,6 +2,8 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy import interpolate
 from math import pi
+import solo_tsid
+import time
 from example_robot_data import loadSolo  # Functions to load the SOLO quadruped
 import pinocchio as pin  # Pinocchio library
 
@@ -364,11 +366,13 @@ def TSID_traj(verticalSpeed, disp):
     q      = np.full((tsid.solo12_wrapper.nq, N_simu + 1), np.nan)
     v      = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
     dv     = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
+    t_traj = np.full(N_simu+1, np.nan)
 
 	# launch simu
 
     t = 0.0
     dt = 1e-3
+    t_traj[0] = t
     q[:, 0], v[:, 0] = tsid.q0, tsid.v0
 
     for i in range(N_simu-2):
@@ -398,15 +402,17 @@ def TSID_traj(verticalSpeed, disp):
 		# numerical integration
         q[:,i + 1], v[:,i + 1] = tsid.integrate_dv(q[:,i], v[:,i], dv[:,i], dt)
         t += dt
+        t_traj[i+1] = t
 		
         if (disp):
             solo12.display(q[:,i])
             time.sleep(1e-3)
     
     # we add the last configuration 
-    q[:, i+2], v[:, i+2] = tsid.q0, tsid.v0
+    q[:, i+1], v[:, i+1] = tsid.q0, tsid.v0
+    tau[:, i+1] = np.zeros(tsid.solo12_wrapper.na)
 			
-    return q[:,0:i+2], v[:,0:i+2], dv[:, 0:i+2], tau[:, 0:i+2]
+    return t_traj[0:i+1], q[:,0:i+1], v[:,0:i+1], tau[:, 0:i+1]
 
 
 if __name__ == '__main__':
