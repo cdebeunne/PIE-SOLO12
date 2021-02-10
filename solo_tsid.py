@@ -33,7 +33,7 @@ class solo_tsid:
 		
 		# problem formulation
         self.formulation = tsid.InverseDynamicsFormulationAccForce("tsid", self.solo12_wrapper, False)
-        self.q0 = self.solo12_model.referenceConfigurations["standing"]
+        self.q0 = self.solo12_model.referenceConfigurations["straight_standing"]
         self.v0 = np.zeros(self.solo12_model.nv)
         self.formulation.computeProblemData(0.0, self.q0, self.v0)
         self.data = self.formulation.data()
@@ -48,8 +48,8 @@ class solo_tsid:
 		############
         # COM TASK #
         ############
-        self.kp_com = 10
-        self.w_com = 1
+        self.kp_com = 50
+        self.w_com = 3
         self.comTask = tsid.TaskComEquality("task-com", self.solo12_wrapper)
         self.comTask.setKp(self.kp_com * np.ones(3).T)
         self.comTask.setKd(2*np.sqrt(self.kp_com) * np.ones(3).T)
@@ -64,8 +64,8 @@ class solo_tsid:
         self.w_trunk = 1
         self.trunkTask = tsid.TaskSE3Equality("task-trunk", self.solo12_wrapper, 'base_link')
         mask = np.matrix([1.0, 1.0, 0.0, 1.0, 1.0, 1.0]).T
-        self.trunkTask.setKp(np.matrix([0.0, 0.0, 0.0, self.kp_trunk, self.kp_trunk, self.kp_trunk]).T)
-        self.trunkTask.setKd(np.matrix([0.0, 0.0, 0.0, 2.0 * np.sqrt(self.kp_trunk), 2.0 * np.sqrt(self.kp_trunk), 2.0 * np.sqrt(self.kp_trunk)]).T)
+        self.trunkTask.setKp(np.matrix([self.kp_trunk, self.kp_trunk, 0.0, self.kp_trunk, self.kp_trunk, self.kp_trunk]).T)
+        self.trunkTask.setKd(np.matrix([2.0 * np.sqrt(self.kp_trunk), 2.0 * np.sqrt(self.kp_trunk), 0.0, 2.0 * np.sqrt(self.kp_trunk), 2.0 * np.sqrt(self.kp_trunk), 2.0 * np.sqrt(self.kp_trunk)]).T)
         self.trunkTask.useLocalFrame(False)
         self.trunkTask.setMask(mask)
         self.formulation.addMotionTask(self.trunkTask, self.w_trunk, 1, 0.0)
@@ -114,6 +114,9 @@ class solo_tsid:
 
         self.solver = tsid.SolverHQuadProgFast("qp solver")
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
+    
+    def getCOM(self):
+        return self.solo12_wrapper.com(self.formulation.data())
         
     def setCOMRef(self, deltaPos, vel, acc):
         sampleCom = self.trajCom.computeNext()
@@ -122,9 +125,9 @@ class solo_tsid:
         sampleCom.acc(acc)
         self.comTask.setReference(sampleCom)
         
-    def setBaseRef(self, rpy):
+    def setBaseRef(self):
         sampleTrunk = self.trajTrunk.computeNext()
-        sampleTrunk.pos(np.matrix([0.0, 0.0, 0.0, 1.0, rpy[0], rpy[1], rpy[2], 1.0, 0.0, 0.0, 0.0, 1.0]).T)
+        sampleTrunk.pos(np.matrix([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]).T)
         sampleTrunk.vel(np.matrix([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T)
         sampleTrunk.acc(np.matrix([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).T)
         self.trunkTask.setReference(sampleTrunk)
