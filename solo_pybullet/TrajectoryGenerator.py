@@ -770,6 +770,77 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 
 
 """
+Trajectory Generator using Crocoddyl.
+"""
+class TrajectoryGen_Croco(TrajectoryGenerator):
+	def __init__(self):
+		TrajectoryGenerator.__init__(self)
+
+		self.name = "TSID Trajectory"
+
+		# Defining default parameters of the trajectory
+		self.parametersDefaults['display'] = True
+		self.parametersDefaults['height'] = 0.25
+	
+	def generateTrajectory(self, **kwargs):
+		import crocoddyl
+		from crocoddyl.utils.quadruped import SimpleQuadrupedalGaitProblem, plotSolution
+
+		# Load parameters of the trajectory
+		self.setParametersFromDict(**kwargs)
+		param_vertVel = self.getParameter('verticalVelocity')
+		
+		# Loading the solo model
+		solo = loadSolo(False)
+		robot_model = solo.model
+		lims = robot_model.effortLimit
+
+		# Setting up CoM problem
+		lfFoot, rfFoot, lhFoot, rhFoot = 'FL_FOOT', 'FR_FOOT', 'HL_FOOT', 'HR_FOOT'
+		gait = SimpleQuadrupedalGaitProblem(robot_model, lfFoot, rfFoot, lhFoot, rhFoot)
+		
+		# Defining the initial state of the robot
+		q0 = robot_model.referenceConfigurations['standing'].copy()
+		v0 = pin.utils.zero(robot_model.nv)
+		x0 = np.concatenate([q0, v0])
+
+		# Defining the CoM gait parameters
+		Jumping_gait = {'jumpHeight': self.getParameter('height'), 'jumpLength': [0,0,0.5], 'timeStep': 1e-2, 'groundKnots': 25, 'flyingKnots': 25}
+
+		# Setting up the control-limited DDP solver
+		boxddp = crocoddyl.SolverBoxDDP(
+			gait.createJumpingProblem(x0, Jumping_gait['jumpHeight'], Jumping_gait['jumpLength'], 
+											Jumping_gait['timeStep'], Jumping_gait['groundKnots'],
+											Jumping_gait['flyingKnots']))
+
+		# Add the callback functions
+		print('*** SOLVE ***')
+		cameraTF = [2., 2.68, 0.84, 0.2, 0.62, 0.72, 0.22]
+		if self.getParameter('display'):
+			display = crocoddyl.GepettoDisplay(solo, 4, 4, cameraTF, frameNames=[lfFoot, rfFoot, lhFoot, rhFoot])
+			boxddp.setCallbacks([crocoddyl.CallbackVerbose(), crocoddyl.CallbackDisplay(display)])
+		else:
+			boxddp.setCallbacks([crocoddyl.CallbackVerbose()])
+
+		xs = [robot_model.defaultState] * (boxddp.problem.T + 1)
+		us = boxddp.problem.quasiStatic([solo.model.defaultState] * boxddp.problem.T)
+
+		# Solve the DDP problem
+		boxddp.solve(xs, us, 100, False, 0.1)
+
+		# Display the entire motion
+		if self.getParameter('display'):
+			display = crocoddyl.GepettoDisplay(solo, frameNames=[lfFoot, rfFoot, lhFoot, rhFoot])
+			display.displayFromSolver(boxddp)
+
+		# Define trajectory for return
+		traj = ActuatorsTrajectory()
+
+		return traj
+
+
+
+"""
 Simple example to show how to use it
 """
 if __name__ == '__main__':
