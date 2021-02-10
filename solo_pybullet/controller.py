@@ -3,8 +3,6 @@
 # Other modules
 import numpy as np
 from numpy import linalg as la
-# Pinocchio modules
-import pinocchio as pin  # Pinocchio library
 from math import pi
 
 from .PD import PD
@@ -76,7 +74,7 @@ control_jump.isCrouched = False
 control_jump.inAir = False
 
 
-def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
+def control_traj(solo, t, dt, q, qdot, traj):
 	torque_sat = 3  # torque saturation in N.m
 	torques_ref = np.zeros((12, 1))  # feedforward torques
 	threshold = 0.3
@@ -88,14 +86,8 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 	if not control_traj.initialized :
 		control_traj.offset = t
 
-		if qa_traj[0].size == 19:
-			qa_ref = qa_traj[0][7:].reshape((12, 1))
-			qadot_ref = qadot_traj[0][6:].reshape((12, 1))
-		elif qa_traj[0].size == 12:
-			qa_ref = qa_traj[0].reshape((12, 1))
-			qadot_ref = qadot_traj[0].reshape((12, 1))
-		else:
-			print("Dimensions of q_traj are not supported.")
+		qa_ref = traj.getElement('q', 0).reshape((12, 1))
+		qadot_ref = traj.getElement('q_dot', 0).reshape((12, 1))
 
 		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=1, Kd=0.5, torque_sat=torque_sat, torques_ref=torques_ref)
 
@@ -110,25 +102,18 @@ def control_traj(q, qdot, solo, t_traj, qa_traj, qadot_traj, gains_traj, t, dt):
 		t = t-control_traj.offset
 
 		# Get the current state in the trajectory
-		if t>np.max(t_traj):
-			index = -1
+		if t>np.max(traj.getElement('t', -1)) and not control_traj.ended:
+			print("End of trajectory. Staying in last state.")
+			control_traj.ended = True
 
-			if not control_traj.ended:
-				print("End of trajectory. Staying in last state.")
-				control_traj.ended = True
-		else:
-			index = np.argmax(t_traj>t)
+		qa_ref = traj.getElementAtTime('q', t).reshape((12, 1))
+		qadot_ref = traj.getElementAtTime('q_dot', t).reshape((12, 1))
+		torques_ref = traj.getElementAtTime('torques', t).reshape((12, 1))
 
-		if qa_traj[index].size == 19:
-			qa_ref = qa_traj[index][7:].reshape((12, 1))
-			qadot_ref = qadot_traj[index][6:].reshape((12, 1))
-		elif qa_traj[index].size == 12:
-			qa_ref = qa_traj[index].reshape((12, 1))
-			qadot_ref = qadot_traj[index].reshape((12, 1))
-		else:
-			print("Dimensions of q_traj are not supported.")
+		kp = traj.getElementAtTime('gains', t)[0]
+		kd = traj.getElementAtTime('gains', t)[1]
 
-		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=gains_traj[index, 0], Kd=gains_traj[index, 1], torque_sat=torque_sat, torques_ref=torques_ref)
+		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=kp, Kd=kd, torque_sat=torque_sat, torques_ref=torques_ref)
 	
 	return torques
 

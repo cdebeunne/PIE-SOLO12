@@ -373,7 +373,7 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
 	def __init__(self):
 		TrajectoryGenerator.__init__(self)
 
-		self.name = "Splines Trajectory"
+		self.name = "Inverse Kinematics Trajectory"
 
 		# Defining default parameters of the trajectory
 		self.parametersDefaults['tf'] = 10
@@ -663,3 +663,143 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
 
 		return np.array([x, y, z]), gains
 
+
+"""
+Trajectory Generator using TSID.
+"""
+class TrajectoryGen_TSID(TrajectoryGenerator):
+	def __init__(self):
+		TrajectoryGenerator.__init__(self)
+
+		self.name = "TSID Trajectory"
+
+		# Defining default parameters of the trajectory
+		self.parametersDefaults['dt'] = 1e-4
+		self.parametersDefaults['kp'] = 5
+		self.parametersDefaults['kd'] = 1
+		self.parametersDefaults['disp'] = False
+		self.parametersDefaults['verticalVelocity'] = 0.1
+	
+	def generateTrajectory(self, **kwargs):
+		import time
+		from .solo_tsid import SoloTSID
+
+		# Load parameters of the trajectory
+		self.setParametersFromDict(**kwargs)
+		dt = self.getParameter('dt')
+		param_kp = self.getParameter('kp')
+		param_kd = self.getParameter('kd')
+		param_disp = self.getParameter('disp')
+		param_vertVel = self.getParameter('verticalVelocity')
+		
+		# Initialize Viewer if needed
+		if (param_disp):
+			solo12 = loadSolo(False)
+			solo12.initViewer(loadModel=True)
+			
+		# Initialize TSID
+		tsid = SoloTSID()
+		tsid.setCOMRef(np.array([0.0,0.0,-0.05]).T, np.zeros(3), np.zeros(3))
+		tsid.setBaseRef()
+
+		comObj1 = tsid.getCOM()+np.array([0.0,0.0,-0.05]).T
+		comObj2 = tsid.getCOM()+np.array([0.0,0.0,0.09]).T
+
+		# Initalize trajectories
+		N_simu = 15000
+		tau    = np.full((tsid.solo12_wrapper.na, N_simu), np.nan)
+		q      = np.full((tsid.solo12_wrapper.nq, N_simu + 1), np.nan)
+		v      = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
+		dv     = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
+		gains  = np.zeros((2,N_simu+1))
+		t_traj = np.full(N_simu+1, np.nan)
+
+		# Launch simu
+		t = 0.0
+		t_traj[0] = t
+		q[:, 0], v[:, 0] = tsid.q0, tsid.v0
+		gains[:,0] = np.array([param_kp, param_kd])
+
+		for i in range(N_simu-2):
+			time_start = time.time()
+			
+			HQPData = tsid.formulation.computeProblemData(t, q[:,i], v[:,i])
+			sol = tsid.solver.solve(HQPData)
+			
+			com = tsid.getCOM()
+			deltaCom1 = abs(com[2] - comObj1[2])
+			deltaCom2 = abs(com[2] - comObj2[2])
+			if deltaCom1 < 2e-2:
+				tsid.setCOMRef(np.array([0.0,0.0,0.1]).T, np.array([0.0,0.0,param_vertVel]), np.zeros(3))
+			
+			if deltaCom2 < 1e-2:
+				break
+			
+			if sol.status != 0:
+				print("Time {0:0.3f} QP problem could not be solved! Error code: {1}".format(t, sol.status))
+				break
+			
+			tau[:,i] = tsid.formulation.getActuatorForces(sol)
+			dv[:,i] = tsid.formulation.getAccelerations(sol)
+			
+			# Numerical integration
+			q[:,i + 1], v[:,i + 1] = tsid.integrate_dv(q[:,i], v[:,i], dv[:,i], dt)
+			t += dt
+			t_traj[i+1] = t
+			
+			# Set the gains
+			gains[:,i+1] = np.array([param_kd, param_kp])
+			
+			if (param_disp):
+				solo12.display(q[:,i])
+				time.sleep(1e-3)
+		
+		# Adding the last configuration 
+		q[:, i+1], v[:, i+1] = tsid.q0, tsid.v0
+		tau[:, i+1] = np.zeros(tsid.solo12_wrapper.na)
+		
+		# Define trajectory for return
+		traj = ActuatorsTrajectory()
+		traj.addElement('t', t_traj[0:i+2])
+		traj.addElement('q', q[7:,0:i+2])
+		traj.addElement('q_dot', v[6:,0:i+2])
+		traj.addElement('gains', gains[:,0:i+2])
+		traj.addElement('torques', tau[:, 0:i+2])
+
+		return traj
+
+
+"""
+Simple example to show how to use it
+"""
+if __name__ == '__main__':
+	import time
+	
+	# Create a instance of trajectory generator
+	traj_gen = TrajectoryGen_InvKin()
+
+	# Set a parameter of the generator
+	kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
+	traj_gen.setParameter('feet_traj_params', kwargs_trajec)
+
+	# Set multiple parameter of the genetor
+	kwargs_trajGen = {'debug':True, 'dt':0.01}
+	traj_gen.setParametersFromDict(**kwargs_trajGen)
+
+	# Display Informations about the generator
+	traj_gen.printInfo()
+
+	# Generate the trajectory
+	traj = traj_gen.generateTrajectory()
+
+	# Display the generated trajectory in Gepetto-Gui
+	solo = loadSolo(False)
+	solo.initViewer(loadModel=True)
+
+	t0 = time.time()
+	for i in range(traj.getSize()):
+		q = np.concatenate((np.array([0, 0, 0.4, 0 ,0 ,0, 1]), traj.getElement('q', i)))
+		solo.display(q)
+
+		while(time.time()-t0<traj.getElement('t', i)):
+			time.sleep(0.00001)
