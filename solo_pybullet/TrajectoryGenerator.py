@@ -796,7 +796,7 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 		dv     = np.zeros((tsid.solo12_wrapper.nv, N_simu + 1))
 		tau    = np.zeros((tsid.solo12_wrapper.na, N_simu + 1))
 		gains  = np.zeros((2,N_simu+1))
-		t_traj = np.arange(0, N_simu+1)/self.getParameter('dt')
+		t_traj = np.arange(0, N_simu+1)*self.getParameter('dt')
 
 		# Launch simu
 		t = 0.0
@@ -805,7 +805,6 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 		gains[:,0] = np.array([param_kp, param_kd])
 
 		for i in range(N_simu-2):
-			
 			HQPData = tsid.formulation.computeProblemData(t, q[:,i], v[:,i])
 			sol = tsid.solver.solve(HQPData)
 			
@@ -828,7 +827,6 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 			# Numerical integration
 			q[:,i + 1], v[:,i + 1] = tsid.integrate_dv(q[:,i], v[:,i], dv[:,i], dt)
 			t += dt
-			t_traj[i+1] = t
 			
 			# Set the gains
 			gains[:,i+1] = np.array([param_kd, param_kp])
@@ -837,8 +835,7 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 				solo12.display(q[:,i])
 				time.sleep(1e-3)
 		
-		# Adding the last configuration 
-		t_traj[i+1] = t_traj[i]+dt
+		# Adding the last configuration
 		q[:, i+1], v[:, i+1] = tsid.q0, tsid.v0
 		tau[:, i] = np.zeros(tsid.solo12_wrapper.na)
 		tau[:, i+1] = np.zeros(tsid.solo12_wrapper.na)
@@ -869,10 +866,15 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		self.name = "TSID Trajectory"
 
 		# Defining default parameters of the trajectory
-		self.parametersDefaults['display'] = True
 		self.parametersDefaults['height'] = 0.25
+		self.parametersDefaults['dt'] = 1e-2
+
+		self.parametersDefaults['gepetto_viewer'] = False
+		self.parametersDefaults['debug'] = True
+		self.parametersDefaults['verbose'] = False
 	
 	def generateTrajectory(self, **kwargs):
+		import time
 		import crocoddyl
 		from crocoddyl.utils.quadruped import SimpleQuadrupedalGaitProblem, plotSolution
 
@@ -895,7 +897,7 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		x0 = np.concatenate([q0, v0])
 
 		# Defining the CoM gait parameters
-		Jumping_gait = {'jumpHeight': self.getParameter('height'), 'jumpLength': [0,0,0.5], 'timeStep': 1e-2, 'groundKnots': 25, 'flyingKnots': 25}
+		Jumping_gait = {'jumpHeight': self.getParameter('height'), 'jumpLength': [0,0,0.5], 'timeStep': self.getParameter('dt'), 'groundKnots': 25, 'flyingKnots': 25}
 
 		# Setting up the control-limited DDP solver
 		boxddp = crocoddyl.SolverBoxDDP(
@@ -903,14 +905,21 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 											Jumping_gait['timeStep'], Jumping_gait['groundKnots'],
 											Jumping_gait['flyingKnots']))
 
-		# Add the callback functions
-		print('*** SOLVE ***')
+		# Print debug info if requiered
+		t0 = time.time()
+		if self.getParameter('debug'):
+			print("Computing Trajectory...")
+			self.printInfo()
+
+		# Add the callback functions if requiered
+		if self.getParameter('verbose'):
+			boxddp.setCallbacks([crocoddyl.CallbackVerbose()])
+
+		# Setup viewer if requiered
 		cameraTF = [2., 2.68, 0.84, 0.2, 0.62, 0.72, 0.22]
-		if self.getParameter('display'):
+		if self.getParameter('gepetto_viewer'):
 			display = crocoddyl.GepettoDisplay(solo, 4, 4, cameraTF, frameNames=[lfFoot, rfFoot, lhFoot, rhFoot])
 			boxddp.setCallbacks([crocoddyl.CallbackVerbose(), crocoddyl.CallbackDisplay(display)])
-		else:
-			boxddp.setCallbacks([crocoddyl.CallbackVerbose()])
 
 		xs = [robot_model.defaultState] * (boxddp.problem.T + 1)
 		us = boxddp.problem.quasiStatic([solo.model.defaultState] * boxddp.problem.T)
@@ -919,12 +928,36 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		boxddp.solve(xs, us, 100, False, 0.1)
 
 		# Display the entire motion
-		if self.getParameter('display'):
+		if self.getParameter('gepetto_viewer'):
 			display = crocoddyl.GepettoDisplay(solo, frameNames=[lfFoot, rfFoot, lhFoot, rhFoot])
 			display.displayFromSolver(boxddp)
 
+		# Get results from solver
+		xs, us = boxddp.xs, boxddp.us
+		nx, nq, nu = xs[0].shape[0], robot_model.nq, us[0].shape[0]
+		X = [0.] * nx
+		U = [0.] * nu
+
+		for i in range(nx):
+			X[i] = [np.asscalar(x[i]) for x in xs]
+		for i in range(nu):
+			U[i] = [np.asscalar(u[i]) if u.shape[0] != 0 else 0 for u in us]
+
+		qa = np.array(X[7:nq])[:, :-1]
+		qa_dot = np.array(X[nq+6:2*nq-1])[:, :-1]
+		torques = np.array(U[:])
+		t_traj = np.arange(0, qa.shape[1])*self.getParameter('dt')
+
+		# Print execution time if requiered
+		if self.getParameter('debug'):
+			print("Done in", time.time()-t0, "s")
+
 		# Define trajectory for return
 		traj = ActuatorsTrajectory()
+		traj.addElement('t', t_traj)
+		traj.addElement('q', qa)
+		traj.addElement('q_dot', qa_dot)
+		traj.addElement('torques', torques)
 
 		return traj
 

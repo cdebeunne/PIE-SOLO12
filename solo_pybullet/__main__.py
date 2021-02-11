@@ -7,7 +7,7 @@
 import pybullet as p  # PyBullet simulator
 import time
 
-from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID
+from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco
 from .controller import Controller_Traj
 from .security import check_integrity
 
@@ -33,7 +33,7 @@ kwargs_invDyn = {"disp":False, "verticalVelocity":0.2, "kp":10, "kd":5}
 
 # Compute Joint Trajectory
 kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
-traj_gen = TrajectoryGen_TSID()
+traj_gen = TrajectoryGen_Croco()
 traj_gen.setParametersFromDict(**kwargs_invDyn)
 actuators_traj = traj_gen.generateTrajectory()
 
@@ -45,7 +45,7 @@ actuators_traj.plotTrajectory()
 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 control = Controller_Traj(actuators_traj)
-# control.debug = True
+control.debug = True
 
 cur_time = 0
 while True:

@@ -17,6 +17,7 @@ class Controller:
 		
 		# Print informations if true
 		self.debug = False
+		self.debugPD = False
 	
 	"""
 	Returns torques to 0.
@@ -67,7 +68,7 @@ class Controller:
 		# Saturation to limit the maximal value that torques can have
 		torques = np.maximum(np.minimum(torques, torques_sat), -torques_sat)
 
-		if self.debug:
+		if self.debugPD:
 			print("+------+-----------+-----------+-----------+")
 			print("|  ID  |  QA_REF   |     QA    |   TORQUE  |")
 			print("+------+-----------+-----------+-----------+")
