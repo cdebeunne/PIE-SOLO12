@@ -28,24 +28,32 @@ robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
 
 # Parameters for 
 kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
-kwargs_kininv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True}
-kwargs_invDyn = {"disp":False, "verticalVelocity":0.2, "kp":10, "kd":5}
+kwargs_KinInv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True, "feet_traj_params":kwargs_trajec}
+
+kwargs_TSID = {"verticalVelocity":0.2, "kp":10, "kd":5}
+
+kwargs_Croco = {"height":0.2}
 
 # Compute Joint Trajectory
-kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
 traj_gen = TrajectoryGen_Croco()
-traj_gen.setParametersFromDict(**kwargs_invDyn)
+traj_gen.setParametersFromDict(**kwargs_Croco)
 actuators_traj = traj_gen.generateTrajectory()
 
-actuators_traj.plotTrajectory()
+# Plot trajectory of the actuators
+# actuators_traj.plotTrajectory(show_gains=True, show_all=True)
+
+###############
+#  CONTROLLER #
+###############
+
+control = Controller_Traj(actuators_traj)
+control.debug = True
 
 ###############
 #  MAIN LOOP ##
 ###############
 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
-control = Controller_Traj(actuators_traj)
-control.debug = True
 
 cur_time = 0
 while True:

@@ -186,7 +186,7 @@ class ActuatorsTrajectory:
 	"""
 	Plots the trajectory.
 	"""
-	def plotTrajectory(self, show_gains=False, show_all=True):
+	def plotTrajectory(self, show_gains=False, show_all=False):
 		if self.getSize()<=0:
 			self.printExcept("No data to plot.")
 			return
