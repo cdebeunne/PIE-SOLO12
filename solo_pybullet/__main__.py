@@ -8,7 +8,7 @@ import pybullet as p  # PyBullet simulator
 import time
 
 from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID
-from .controller import control_traj
+from .controller import Controller_Traj
 from .security import check_integrity
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
@@ -25,7 +25,7 @@ kwargs_invDyn = {"disp":False, "verticalVelocity":0.2, "kp":1, "kd":10}
 
 # Compute Joint Trajectory
 kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
-traj_gen = TrajectoryGen_TSID()
+traj_gen = TrajectoryGen_InvKin()
 traj_gen.setParametersFromDict(**kwargs_invDyn)
 actuators_traj = traj_gen.generateTrajectory()
 
@@ -43,6 +43,7 @@ robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
 ###############
 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
+control = Controller_Traj(actuators_traj)
 
 cur_time = 0
 while True:
@@ -56,7 +57,7 @@ while True:
     q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
     # Call controller to get torques for all joints
-    jointTorques = control_traj(solo, cur_time, kwargs_simu.get("dt", 0.0001), q, qdot, actuators_traj)
+    jointTorques = control.getTorques(q, qdot, t=cur_time)
 
     # Set control torques for all joints in PyBullet
     p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)

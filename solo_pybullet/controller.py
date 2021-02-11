@@ -2,133 +2,220 @@
 
 # Other modules
 import numpy as np
-from numpy import linalg as la
-from math import pi
 
-from .PD import PD
+"""
+Default controller. Boring standing.
+"""
+class Controller:
+	def __init__(self):
+		self.name = "Default Controller: Standing"
 
-################
-#  CONTROLLER ##
-################ 
-
-def control_fall(q, solo):
-	return np.zeros((12,1))
-
-def control_stand(q, qdot, solo, dt):
-	qa = q[7:]
-	qa_dot = qdot[6:]
-	qa_ref = np.zeros((12, 1))  # target angular positions for the motors
-	qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
-	torque_sat = 3  # torque saturation in N.m
-	torques_ref = np.zeros((12, 1))  # feedforward torques
-	torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, 1, 1, torque_sat, torques_ref)
-	return torques
-
-def control_jump(q, qdot, solo, dt):
-	qa = q[7:]
-	qa_dot = qdot[6:]
-	qa_ref = np.zeros((12, 1))  # target angular positions for the motors
+		# Defining parameters of the controller
+		self.default_parameters = {}
+		self.default_parameters['gains'] = np.array([1, 1])
+		self.default_parameters['torques_sat'] = 3*np.ones((12, 1))
+		
+		# Print informations if true
+		self.debug = False
 	
-	# define the different configurations of the jump
-	pos_crouch = np.array([[0, 0.9*pi/2, -0.9*pi], \
-						[0, 0.9*pi/2, -0.9*pi], \
-						[0, -0.9*pi/2, 0.9*pi], \
-						[0, -0.9*pi/2, 0.9*pi]])
-	q_crouch = np.zeros((12,1))
-	q_air = np.zeros((12,1))
-	q_jump = np.zeros((12,1))
-	for leg in range(4):
-			for art in range(3):
-				q_crouch[3*leg+art] = 0.8*pos_crouch[leg, art]
-				q_air[3*leg+art] = 0.5*pos_crouch[leg,art]
+	"""
+	Returns torques to 0.
+	"""
+	def stop(self):
+		return np.zeros((12,1))
 
-	# check the step of the jump
-	if not control_jump.isCrouched:
-		control_jump.isCrouched = la.norm(qa-q_crouch)<0.5
-	if control_jump.isCrouched and not control_jump.inAir:
-		control_jump.inAir = la.norm(qa-q_jump)<0.5
+	"""
+	Returns torques for standing position.
+	"""
+	def getTorques(self, q, q_dot, **kwargs):
+		qa = q[7:]
+		qa_dot = q_dot[6:]
 
-	if not control_jump.isCrouched:
-		qa_ref = q_crouch
-		KD = 1
-		KP = 5
-	else:
-		qa_ref = q_jump
-		KD = 0.5
-		KP = 20
+		objective = {}
+		objective['qa_ref'] = np.zeros((12, 1))  # target angular positions for the motors
+		objective['qa_dot_ref'] = np.zeros((12, 1))  # target angular velocities for the motors
+
+		return self.PD(qa, qa_dot, **objective)
+
+	"""
+	Prints current state of the controller in console
+	"""
+	def printState(self):
+		print("Controller State: Doing Nothing")
+
+	"""
+	Simple PD controller with feedforward.
+
+	:param qa Current position of the actuators. Must be an np.ndarray(12,1)
+	:param qa_dot Current speed of the actuators. Must be an np.ndarray(12,1)
+	:param objective Objective to reach. The element of the objective can be: qa_ref, qa_dot_ref, torques_ff, gains
+	:ret torques to apply to each joint. It will be an np.ndarray(12,1)
+	"""
+	def PD(self, qa, qa_dot, **objective):
+		qa_ref = objective.get('qa_ref', np.zeros((12,1)))
+		qa_dot_ref = objective.get('qa_dot_ref', np.zeros((12,1)))
+		torques_ff = objective.get('torques_ff', np.zeros((12,1)))
+
+		gains = objective.get('gains', self.default_parameters['gains'])
+		torques_sat = self.default_parameters['torques_sat']
+
+		# Output torques
+		Kp = gains[0]
+		Kd = gains[1]
+		torques = Kp*(qa_ref - qa) + Kd*(qa_dot_ref - qa_dot) + torques_ff
+
+		# Saturation to limit the maximal value that torques can have
+		torques = np.maximum(np.minimum(torques, torques_sat), -torques_sat)
+
+		if self.debug:
+			print("+------+-----------+-----------+-----------+")
+			print("|  ID  |  QA_REF   |     QA    |   TORQUE  |")
+			print("+------+-----------+-----------+-----------+")
+			for i in range(len(qa_ref)):
+				print("| j={0:2d} | ref={1:+3.2f} | cur={2:+3.2f} | tor={3:+3.2f} |".format(i, qa_ref[i][0],qa[i][0], torques[i][0]) )
+			print("+------+-----------+-----------+-----------+\n")
+
+		return torques
+
+"""
+Simple Jumping controller.
+"""
+class Controller_Jump(Controller):
+	def __init__(self, trajectory):
+		from math import pi
+
+		Controller.__init__(self)
+
+		self.name = "Basic Jumping Controller"
+
+		# Parameters to store the current state of the jump
+		self.isCrouched = False
+		self.inAir = False
+
+		# Definition of default parameters
+		self.default_parameters['threshold_change'] = 0.5
+
+		# Define the different configurations of the jump
+		self.q_crouch = np.zeros((12,1))
+		self.q_air = np.zeros((12,1))
+		self.q_jump = np.zeros((12,1))
+
+		pos_crouch = np.array([[0, 0.9*pi/2, -0.9*pi], \
+							[0, 0.9*pi/2, -0.9*pi], \
+							[0, -0.9*pi/2, 0.9*pi], \
+							[0, -0.9*pi/2, 0.9*pi]])
+		for leg in range(4):
+				for art in range(3):
+					self.q_crouch[3*leg+art] = 0.8*pos_crouch[leg, art]
+					self.q_air[3*leg+art] = 0.5*pos_crouch[leg,art]
+
+	def printState(self):
+		print("Controller State:")
+		print("\t- isCrouched: {0}".format(self.isCrouched))
+		print("\t- inAir: {0}".format(self.inAir))
+
+	"""
+	Returns torques for standing position.
+	"""
+	def getTorques(self, q, q_dot, **kwargs):
+		from numpy.linalg import norm
+
+		qa = q[7:]
+		qa_dot = q_dot[6:]
+
+		objective = {}
+
+		# Update current state of the jump
+		if not self.isCrouched:
+			self.isCrouched = norm(qa-self.q_crouch)<self.default_parameters['threshold_change']
+		if self.isCrouched and not self.inAir:
+			self.inAir = norm(qa-self.q_jump)<self.default_parameters['threshold_change']
+
+		# Get the required congiguration given the state		
+		if self.inAir:
+			objective['qa_ref'] = self.q_air
+			objective['gains'] = np.array([1, 10])
+		elif self.isCrouched:
+			objective['qa_ref'] = self.q_jump
+			objective['gains'] = np.array([0.5, 20])
+		else:
+			objective['qa_ref'] = self.q_crouch
+			objective['gains'] = np.array([1, 5])
+		
+		return self.PD(qa, qa_dot, **objective)
+
+"""
+Controller to get the torques from a given ActuatorsTrajectory.
+"""
+class Controller_Traj(Controller):
+	def __init__(self, trajectory):
+		Controller.__init__(self)
+
+		self.name = "Trajectory Controller"
+		self.initialized = False
+		self.ended = False
+		self.offset = 0
+		self.stopAtEnd = False
+		
+		self.default_parameters['init_threshold'] = 0.3
+		self.default_parameters['init_gains'] = np.array([1, 0.5])
+
+		self.trajectory = trajectory
 	
-	if control_jump.inAir:
-		qa_ref = q_air
-		KD = 1
-		KP = 10
-	
-	
-	qa_dot_ref = np.zeros((12, 1))  # target angular velocities for the motors
-	torque_sat = 3  # torque saturation in N.m
-	torques_ref = np.zeros((12, 1))  # feedforward torques
-	torques = PD(qa_ref, qa_dot_ref, qa, qa_dot, dt, KP, KD, torque_sat, torques_ref)
+	def printState(self):
+		print("Controller State:")
+		print("\t- initialized: {0}".format(self.initialized))
+		print("\t- ended: {0}".format(self.ended))
 
-	return torques
+	"""
+	Returns torques for standing position.
+	"""
+	def getTorques(self, q, q_dot, **kwargs):
+		if not 't' in kwargs:
+			print("This controller needs \'t\' as an arguement. Returning stop.")
+			return self.stop()
 
-control_jump.isCrouched = False
-control_jump.inAir = False
+		qa = q[7:]
+		qa_dot = q_dot[6:]
+		t = kwargs['t']
 
+		objective = {}
 
-def control_traj(solo, t, dt, q, qdot, traj):
-	torque_sat = 3  # torque saturation in N.m
-	torques_ref = np.zeros((12, 1))  # feedforward torques
-	threshold = 0.3
+		# Reach the first position of the trajectory first
+		if not self.initialized :
+			self.offset = t
 
-	qa = q[7:]
-	qa_dot = qdot[6:]
+			objective['qa_ref'] = self.trajectory.getElement('q', 0).reshape((12, 1))
+			objective['qa_dot_ref'] = self.trajectory.getElement('q_dot', 0).reshape((12, 1))
+			objective['gains'] = self.default_parameters['init_gains']
 
-	# Reach the first position of the trajectory first
-	if not control_traj.initialized :
-		control_traj.offset = t
+			# If it is reached, continue
+			if np.linalg.norm(objective['qa_ref']-qa) < self.default_parameters['init_threshold']:
+				if self.debug:
+					print('Reached first state in {0:3.2f} s.'.format(t))
+				self.initialized = True
+		# Then run the trajectory
+		else:
+			# Apply offset
+			t = t-self.offset
 
-		qa_ref = traj.getElement('q', 0).reshape((12, 1))
-		qadot_ref = traj.getElement('q_dot', 0).reshape((12, 1))
+			# Get the current state in the trajectory
+			print(t, self.trajectory.getElement('t', -1))
+			if t>self.trajectory.getElement('t', -1) and not self.ended:
+				if self.debug:
+					print("End of trajectory.", end='')
+					if self.stopAtEnd:
+						print("Stopping actuators.")
+					else:
+						print("Staying in last state.")
+				self.ended = True
+			
+			if self.ended and self.stopAtEnd:
+				return self.stop()
 
-		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=1, Kd=0.5, torque_sat=torque_sat, torques_ref=torques_ref)
-
-		# If it is reached, continue
-		if np.linalg.norm(qa_ref-qa) < threshold:
-			print('Reached first state in {0:3.2f} s.'.format(t))
-			control_traj.initialized = True
-	
-	# Then run the trajectory
-	else:
-		# Apply offset
-		t = t-control_traj.offset
-
-		# Get the current state in the trajectory
-		if t>np.max(traj.getElement('t', -1)) and not control_traj.ended:
-			print("End of trajectory. Staying in last state.")
-			control_traj.ended = True
-
-		qa_ref = traj.getElementAtTime('q', t).reshape((12, 1))
-		qadot_ref = traj.getElementAtTime('q_dot', t).reshape((12, 1))
-		torques_ref = traj.getElementAtTime('torques', t).reshape((12, 1))
-
-		kp = traj.getElementAtTime('gains', t)[0]
-		kd = traj.getElementAtTime('gains', t)[1]
-
-		torques = PD(qa_ref, qadot_ref, qa, qa_dot, dt, Kp=kp, Kd=kd, torque_sat=torque_sat, torques_ref=torques_ref)
-	
-	return torques
-
-control_traj.initialized = False
-control_traj.ended = False
-control_traj.offset = 0
-
-
-
-####################
-#  SECURITY CHECK ##
-####################
-
-def torque_check(torque, torque_threshold):
-	for art in range(12):
-		if torque(art)>torque_treshold:
-			return false
-	return true
+			objective['qa_ref'] = 		self.trajectory.getElementAtTime('q', t).reshape((12, 1))
+			objective['qa_dot_ref'] =  	self.trajectory.getElementAtTime('q_dot', t).reshape((12, 1))
+			objective['torques_ff'] =  	self.trajectory.getElementAtTime('torques', t).reshape((12, 1))
+			objective['gains'] = 		self.trajectory.getElementAtTime('gains', t)
+		
+		return self.PD(qa, qa_dot, **objective)

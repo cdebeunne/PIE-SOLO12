@@ -27,6 +27,22 @@ class ActuatorsTrajectory:
 		# If a default value is not defined, the trajectory will generate an error.
 		self.defaultElements = {"q":np.zeros(self.nbActuators), "q_dot":np.zeros(self.nbActuators), "torques":np.zeros(self.nbActuators), "gains":np.array([5, 1])}
 	
+		self.printWarnings = False
+
+	"""
+	Print information in the console if printWarning is true
+	"""
+	def printWarn(self, text):
+		if not self.printWarnings:
+			return
+		print(text)
+
+	"""
+	Print information in the console if printWarning is true
+	"""
+	def printExcept(self, text):
+		print(text)
+		
 	"""
 	Returns the size of the trajectory (number of elements).
 	"""
@@ -51,7 +67,7 @@ class ActuatorsTrajectory:
 		# Check if data type exists
 		if entry in self.entriesTypes:
 			if type(data) is not self.entriesTypes[entry]:
-				print("Wrong type for data of {0} ({1}, {2}).".format(entry, type(data), self.entriesTypes[entry]))
+				self.printExcept("Wrong type for data of {0} ({1}, {2}).".format(entry, type(data), self.entriesTypes[entry]))
 				return False
 		else:
 			return False
@@ -74,7 +90,7 @@ class ActuatorsTrajectory:
 					valid = s==data.shape[i]
 
 				if not valid:
-					print("Invalid size for entry {0} on axis {1} ({2}, {3})".format(entry, i, data.shape[i], self.trajectoryElements['size'] if s==-1 else s))
+					self.printExcept("Invalid size for entry {0} on axis {1} ({2}, {3})".format(entry, i, data.shape[i], self.trajectoryElements['size'] if s==-1 else s))
 					return False
 		
 		# Add the data to the trajectory
@@ -87,16 +103,17 @@ class ActuatorsTrajectory:
 	"""
 	def getElement(self, entry, index):
 		if not self.containsElement(entry):
-			print("The entry {0} does not exist.".format(entry))
+			self.printWarn("The entry {0} does not exist.".format(entry))
 			if entry in self.defaultElements:
-				print("Returning default value.")
+				self.printWarn("Returning default value.")
 				return self.defaultElements[entry]
 			else:
+				self.printExcept("Can't find any default value for entry {0}".format(entry))
 				return None
 
 		if type(self.trajectoryElements[entry])==type(np.array(0)):
 			if index > self.trajectoryElements['size']:
-				print("Index for entry {0} exeeds size ({1}, {2})".format(entry, index, self.trajectoryElements['size']))
+				self.printExcept("Index for entry {0} exeeds size ({1}, {2})".format(entry, index, self.trajectoryElements['size']))
 				return None
 			
 			if len(self.trajectoryElements[entry].shape)==1:
@@ -104,7 +121,7 @@ class ActuatorsTrajectory:
 			elif len(self.trajectoryElements[entry].shape)==2:
 				return self.trajectoryElements[entry][:, index]
 			else:
-				print("Unknown size of element in trajectory element")
+				self.printExcept("Unknown size of element in trajectory element")
 				return None
 		else:
 			return self.trajectoryElements[entry]
@@ -115,7 +132,7 @@ class ActuatorsTrajectory:
 	"""
 	def getElementAtTime(self, entry, time):
 		if not self.containsElement('t'):
-			print("Time is not defined yet in the trajectory (entry \'t\').")
+			self.printExcept("Time is not defined yet in the trajectory (entry \'t\').")
 			return None
 
 		index = 0
@@ -138,18 +155,18 @@ class ActuatorsTrajectory:
 	"""
 	def setDefaultElement(self, entry, data):
 		if not entry in self.defaultElements:
-			print("Can't set a default value for this entry.")
+			self.printExcept("Can't set a default value for this entry.")
 			return False
 		
 		# Check for type if there is any
 		if entry in self.entriesTypes:
 			if type(data) != self.entriesTypes[entry]:
-				print("Type of default data does not match: {0} {1}".format(type(data), self.entriesTypes[entry]))
+				self.printExcept("Type of default data does not match: {0} {1}".format(type(data), self.entriesTypes[entry]))
 				return False
 		
 		# Check for shape if array
 		if type(data)==type(np.array(0)) and data.shape!=self.defaultElements[entry].shape:
-			print("Shape of default data does not match: {0} {1}".format(data.shape, self.defaultElements[entry].shape))
+			self.printExcept("Shape of default data does not match: {0} {1}".format(data.shape, self.defaultElements[entry].shape))
 			return False
 		
 		self.defaultElements[entry] = data
@@ -163,7 +180,7 @@ class ActuatorsTrajectory:
 		if entry in self.defaultElements:
 			return self.defaultElements[entry]
 		else:
-			print("There isn't any default value for entry {0}.".format(entry))
+			self.printExcept("There isn't any default value for entry {0}.".format(entry))
 			return None
 
 	"""
@@ -590,17 +607,17 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
 		return self.q_ref, q_dot_ref, gains, err
 
 	def trajFeet_jump1(self, t, footId, **kwargs):
-		t0 = kwargs.get("traj_t0", 1)  # Duration of initialisation step
-		t1 = kwargs.get("traj_t1", 1)  # Duration of first step (extension of legs)
-		t2 = kwargs.get("traj_t2", 1)  # Duration of second step (spreading legs)
+		t0 = kwargs.get("traj_t0", 0.2)  # Duration of initialisation step
+		t1 = kwargs.get("traj_t1", 0.25)  # Duration of first step (extension of legs)
+		t2 = kwargs.get("traj_t2", 0.15)  # Duration of second step (spreading legs)
 
 		dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
 		dy = kwargs.get("traj_dy", 0.05)  # displacement amplitude by y
 		dx = kwargs.get("traj_dx", dy)    # displacement amplitude by x
 
 		# Gains parameters
-		param_kp = kwargs.get("kp", 5)	# default parameter of kp
-		param_kd = kwargs.get("kd", 1)	# default parameter of kd
+		param_kp = kwargs.get("kp", 10)	# default parameter of kp
+		param_kd = kwargs.get("kd", 0.1)	# default parameter of kd
 		param_kps = kwargs.get("kps", [param_kp, param_kp])	# default parameter of kps
 		param_kds = kwargs.get("kds", [param_kp, param_kd])	# default parameter of kds
 
@@ -608,7 +625,7 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
 		traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
 		traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
 		traj_z0 = kwargs.get("traj_z0", -0.05) # initial distance on the z axis from body
-		traj_zf = kwargs.get("traj_zf", -0.2) # initial distance on the z axis from body
+		traj_zf = kwargs.get("traj_zf", -0.25) # initial distance on the z axis from body
 
 		if traj_z0>=0 or traj_zf>=0:
 			print("traj_z0 or traj_zf might be positive. This may lead to invalid configuration.")
