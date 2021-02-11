@@ -57,7 +57,7 @@ class Controller:
 		torques_ff = objective.get('torques_ff', np.zeros((12,1)))
 
 		gains = objective.get('gains', self.default_parameters['gains'])
-		torques_sat = self.default_parameters['torques_sat']
+		torques_sat = 3 #self.default_parameters['torques_sat']
 
 		# Output torques
 		Kp = gains[0]
@@ -74,6 +74,7 @@ class Controller:
 			for i in range(len(qa_ref)):
 				print("| j={0:2d} | ref={1:+3.2f} | cur={2:+3.2f} | tor={3:+3.2f} |".format(i, qa_ref[i][0],qa[i][0], torques[i][0]) )
 			print("+------+-----------+-----------+-----------+\n")
+			# print(objective)
 
 		return torques
 
@@ -200,7 +201,6 @@ class Controller_Traj(Controller):
 			t = t-self.offset
 
 			# Get the current state in the trajectory
-			print(t, self.trajectory.getElement('t', -1))
 			if t>self.trajectory.getElement('t', -1) and not self.ended:
 				if self.debug:
 					print("End of trajectory.", end='')

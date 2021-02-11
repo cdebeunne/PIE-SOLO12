@@ -140,7 +140,7 @@ class ActuatorsTrajectory:
 			index = -1
 		else:
 			index = np.argmax(self.trajectoryElements['t']>=time)
-		
+			
 		return self.getElement(entry, index)
 
 	"""
@@ -186,9 +186,69 @@ class ActuatorsTrajectory:
 	"""
 	Plots the trajectory.
 	"""
-	def plotTrajectory(self):
-		print("Not implemented yet.")
-		pass
+	def plotTrajectory(self, show_gains=False, show_all=True):
+		if self.getSize()<=0:
+			self.printExcept("No data to plot.")
+			return
+		
+		import matplotlib.pyplot as plt
+		
+		t = self.trajectoryElements['t']
+		qa = self.trajectoryElements.get('q')
+		qa_dot = self.trajectoryElements.get('q_dot')
+		torques = self.trajectoryElements.get('torques')
+		gains = self.trajectoryElements.get('gains')
+		titles = ["Heap", "Shoulder", "Knee"]
+
+		nb_rows = 4 if show_gains and gains is not None else 3
+		nb_cols = 1
+		nb_cols += 1 if qa_dot is not None else 0
+		nb_cols += 1 if torques is not None else 0
+			
+		fig, axes = plt.subplots(nrows=nb_rows, ncols=nb_cols, sharex=True, constrained_layout=True)
+
+		fig.suptitle("Actuators Trajectory", fontsize=16)
+
+		for i in range(3):
+			# Position
+			axes[i, 0].set_title(titles[i]+" Position")
+			for j in range(4 if show_all else 1):
+				axes[i, 0].plot(t, qa[i+3*j,:], label=("Leg {0}".format(j+1) if show_all else 'q (rad)'))
+
+			# Speed
+			if qa_dot is not None:
+				axes[i, 1].set_title(titles[i]+" Speed")
+				for j in range(4 if show_all else 1):
+					axes[i, 1].plot(t, qa_dot[i+3*j,:], label=(None if show_all else 'q_dot (rad/s)'))
+
+			# FeedForward
+			if torques is not None:
+				torq_ax = 2 if nb_cols==3 else 1
+				axes[i, torq_ax].set_title(titles[i]+" Torque")
+				for j in range(4 if show_all else 1):
+					axes[i, torq_ax].plot(t, torques[i+3*j,:], label=(None if show_all else 'feedforward (N.m)'))
+
+			for j in range(nb_cols):
+				axes[i, j].legend()
+				axes[i, j].grid()
+				axes[i, j].set_xlabel("Time (s)")
+				axes[i, j].set_ylabel("Values")
+		
+		if show_gains and gains is not None:
+			gs = axes[-1, 0].get_gridspec()
+			for ax in axes[-1, :]:
+				ax.remove()
+			axbig = fig.add_subplot(gs[-1, :])
+
+			axbig.set_title("Gains")
+			axbig.plot(t, gains[0,:], label='Kp')
+			axbig.plot(t, gains[1,:], label='Kd')
+			axbig.legend()
+			axbig.grid()
+			axbig.set_xlabel("Time (s)")
+			axbig.set_ylabel("Gains")
+		
+		plt.show()
 
 """
 Trajectory Generator class.
@@ -694,8 +754,10 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 		self.parametersDefaults['dt'] = 1e-4
 		self.parametersDefaults['kp'] = 5
 		self.parametersDefaults['kd'] = 1
-		self.parametersDefaults['disp'] = False
 		self.parametersDefaults['verticalVelocity'] = 0.1
+
+		self.parametersDefaults['debug'] = True
+		self.parametersDefaults['gepetto_viewer'] = False
 	
 	def generateTrajectory(self, **kwargs):
 		import time
@@ -706,11 +768,16 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 		dt = self.getParameter('dt')
 		param_kp = self.getParameter('kp')
 		param_kd = self.getParameter('kd')
-		param_disp = self.getParameter('disp')
 		param_vertVel = self.getParameter('verticalVelocity')
 		
+		t0 = time.time()
+		
+		if self.getParameter('debug'):
+			print("Computing Trajectory...")
+			self.printInfo()
+		
 		# Initialize Viewer if needed
-		if (param_disp):
+		if self.getParameter('gepetto_viewer'):
 			solo12 = loadSolo(False)
 			solo12.initViewer(loadModel=True)
 			
@@ -724,12 +791,12 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 
 		# Initalize trajectories
 		N_simu = 15000
-		tau    = np.full((tsid.solo12_wrapper.na, N_simu), np.nan)
-		q      = np.full((tsid.solo12_wrapper.nq, N_simu + 1), np.nan)
-		v      = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
-		dv     = np.full((tsid.solo12_wrapper.nv, N_simu + 1), np.nan)
+		q      = np.zeros((tsid.solo12_wrapper.nq, N_simu + 1))
+		v      = np.zeros((tsid.solo12_wrapper.nv, N_simu + 1))
+		dv     = np.zeros((tsid.solo12_wrapper.nv, N_simu + 1))
+		tau    = np.zeros((tsid.solo12_wrapper.na, N_simu + 1))
 		gains  = np.zeros((2,N_simu+1))
-		t_traj = np.full(N_simu+1, np.nan)
+		t_traj = np.arange(0, N_simu+1)/self.getParameter('dt')
 
 		# Launch simu
 		t = 0.0
@@ -738,7 +805,6 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 		gains[:,0] = np.array([param_kp, param_kd])
 
 		for i in range(N_simu-2):
-			time_start = time.time()
 			
 			HQPData = tsid.formulation.computeProblemData(t, q[:,i], v[:,i])
 			sol = tsid.solver.solve(HQPData)
@@ -767,13 +833,20 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 			# Set the gains
 			gains[:,i+1] = np.array([param_kd, param_kp])
 			
-			if (param_disp):
+			if self.getParameter('gepetto_viewer'):
 				solo12.display(q[:,i])
 				time.sleep(1e-3)
 		
 		# Adding the last configuration 
+		t_traj[i+1] = t_traj[i]+dt
 		q[:, i+1], v[:, i+1] = tsid.q0, tsid.v0
+		tau[:, i] = np.zeros(tsid.solo12_wrapper.na)
 		tau[:, i+1] = np.zeros(tsid.solo12_wrapper.na)
+		gains[:,i+1] = np.array([param_kd, param_kp])
+
+		# Print execution time if requiered
+		if self.getParameter('debug'):
+			print("Done in", time.time()-t0, "s")
 		
 		# Define trajectory for return
 		traj = ActuatorsTrajectory()
@@ -879,6 +952,9 @@ if __name__ == '__main__':
 
 	# Generate the trajectory
 	traj = traj_gen.generateTrajectory()
+	
+	# Plot the trajectory
+	traj.plotTrajectory()
 
 	# Display the generated trajectory in Gepetto-Gui
 	solo = loadSolo(False)

@@ -13,22 +13,6 @@ from .security import check_integrity
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
-
-######################
-#  IMPORT TRAJECTORY #
-######################
-
-# Parameters for 
-kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
-kwargs_kininv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True}
-kwargs_invDyn = {"disp":False, "verticalVelocity":0.2, "kp":1, "kd":10}
-
-# Compute Joint Trajectory
-kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
-traj_gen = TrajectoryGen_InvKin()
-traj_gen.setParametersFromDict(**kwargs_invDyn)
-actuators_traj = traj_gen.generateTrajectory()
-
 ####################
 #  INITIALIZATION  #
 ####################
@@ -38,12 +22,30 @@ actuators_traj = traj_gen.generateTrajectory()
 kwargs_simu = {"dt":0.0001, "max_time":10, "enableGravity":True, "realTime":False, "enableGUI":True, "slowMo":False, "slowMoRatio":100}
 robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
 
+######################
+#  IMPORT TRAJECTORY #
+######################
+
+# Parameters for 
+kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
+kwargs_kininv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True}
+kwargs_invDyn = {"disp":False, "verticalVelocity":0.2, "kp":10, "kd":5}
+
+# Compute Joint Trajectory
+kwargs_jumpin = {**kwargs_trajec, **kwargs_kininv}
+traj_gen = TrajectoryGen_TSID()
+traj_gen.setParametersFromDict(**kwargs_invDyn)
+actuators_traj = traj_gen.generateTrajectory()
+
+actuators_traj.plotTrajectory()
+
 ###############
 #  MAIN LOOP ##
 ###############
 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 control = Controller_Traj(actuators_traj)
+# control.debug = True
 
 cur_time = 0
 while True:
