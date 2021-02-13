@@ -32,7 +32,7 @@ kwargs_KinInv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True, "feet_
 
 kwargs_TSID = {"verticalVelocity":0.2, "kp":10, "kd":5}
 
-kwargs_Croco = {"height":0.25}
+kwargs_Croco = {'gepetto_viewer':False, "height":0.1}
 
 # Compute Joint Trajectory
 traj_gen = TrajectoryGen_Croco()
@@ -40,7 +40,7 @@ traj_gen.setParametersFromDict(**kwargs_Croco)
 actuators_traj = traj_gen.generateTrajectory()
 
 # Plot trajectory of the actuators
-actuators_traj.plotTrajectory(show_gains=True, show_all=True)
+# actuators_traj.plotTrajectory(show_gains=True, show_all=True)
 
 ###############
 #  CONTROLLER #
@@ -81,7 +81,8 @@ while not control.ended:
     # Compute one step of simulation
     p.stepSimulation()
 
-    secu.check_integrity(solo, q, qdot, jointTorques)
+    if control.initialized:
+        secu.check_integrity(solo, q, qdot, jointTorques)
 
     if kwargs_simu.get("enableGUI", False):
         solo.display(q)

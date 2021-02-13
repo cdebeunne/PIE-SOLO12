@@ -870,6 +870,8 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		self.parametersDefaults['dx'] = 0
 		self.parametersDefaults['dy'] = 0
 		self.parametersDefaults['dz'] = 0
+		self.parametersDefaults['torque_lim'] = 3
+		self.parametersDefaults['speed_lim'] = [360, 720, 1080]
 		
 		self.parametersDefaults['dt'] = 1e-2
 		self.parametersDefaults['nb_it'] = 100
@@ -891,8 +893,10 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		# Loading the solo model
 		solo = loadSolo(False)
 		robot_model = solo.model
-		robot_model.effortLimit = robot_model.effortLimit*3/1000
-		lims = robot_model.effortLimit
+
+		# Set limits of actuators speeds and efforts
+		robot_model.effortLimit[6:] = np.full(12, self.getParameter('torque_lim'))
+		robot_model.velocityLimit[6:] = np.tile(np.deg2rad(self.getParameter('speed_lim')), 4)
 
 		# Setting up CoM problem
 		lfFoot, rfFoot, lhFoot, rhFoot = 'FL_FOOT', 'FR_FOOT', 'HL_FOOT', 'HR_FOOT'
@@ -943,7 +947,8 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		# Display the entire motion
 		if self.getParameter('gepetto_viewer'):
 			display = crocoddyl.GepettoDisplay(solo, frameNames=[lfFoot, rfFoot, lhFoot, rhFoot])
-			display.displayFromSolver(boxddp)
+			while True:
+				display.displayFromSolver(boxddp)
 
 		# Get results from solver
 		xs, us = boxddp.xs, boxddp.us
