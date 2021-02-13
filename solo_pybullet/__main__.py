@@ -9,7 +9,7 @@ import time
 
 from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco
 from .controller import Controller_Traj
-from .security import check_integrity
+from .security import SecurityChecker
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
@@ -49,6 +49,12 @@ actuators_traj = traj_gen.generateTrajectory()
 control = Controller_Traj(actuators_traj)
 control.debug = True
 
+##############
+#  SECURITY  #
+##############
+
+secu = SecurityChecker()
+
 ###############
 #  MAIN LOOP ##
 ###############
@@ -56,7 +62,7 @@ control.debug = True
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
 
 cur_time = 0
-while True:
+while not control.ended:
     cur_time += kwargs_simu.get("dt", 0.0001)
 
     # Time at the start of the loop
@@ -75,7 +81,7 @@ while True:
     # Compute one step of simulation
     p.stepSimulation()
 
-    check_integrity(solo, q, qdot)
+    secu.check_integrity(solo, q, qdot)
 
     if kwargs_simu.get("enableGUI", False):
         solo.display(q)
@@ -88,3 +94,6 @@ while True:
 
 # Shut down the PyBullet client
 p.disconnect()
+
+# Print out security results
+secu.show_results()
