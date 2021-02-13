@@ -9,7 +9,7 @@ import time
 
 from .trajectory import jumpTrajectory_1, jumpTrajectory_2
 from .controller import control_traj
-from .security import check_integrity, showIntegrity
+from .security import SecurityChecker
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
@@ -40,6 +40,7 @@ robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
 ###############
 
 q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
+secu = SecurityChecker()
 
 height = []
 qdot_plot = []
@@ -64,7 +65,7 @@ while not control_traj.ended:
     # Compute one step of simulation
     p.stepSimulation()
 
-    check_integrity(solo, q, qdot)
+    secu.check_integrity(solo, q, qdot)
     if control_traj.initialized:
         height.append(q[2])
         qdot_plot.append(qdot[6+5])
@@ -81,4 +82,4 @@ while not control_traj.ended:
 # Shut down the PyBullet client
 p.disconnect()
 
-showIntegrity()
+secu.show_results()
