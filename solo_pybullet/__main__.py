@@ -32,7 +32,7 @@ kwargs_KinInv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True, "feet_
 
 kwargs_TSID = {"verticalVelocity":0.2, "kp":10, "kd":5}
 
-kwargs_Croco = {"height":0.2}
+kwargs_Croco = {"height":0.25}
 
 # Compute Joint Trajectory
 traj_gen = TrajectoryGen_Croco()
@@ -40,7 +40,7 @@ traj_gen.setParametersFromDict(**kwargs_Croco)
 actuators_traj = traj_gen.generateTrajectory()
 
 # Plot trajectory of the actuators
-# actuators_traj.plotTrajectory(show_gains=True, show_all=True)
+actuators_traj.plotTrajectory(show_gains=True, show_all=True)
 
 ###############
 #  CONTROLLER #

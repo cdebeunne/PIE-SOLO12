@@ -866,12 +866,19 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		self.name = "TSID Trajectory"
 
 		# Defining default parameters of the trajectory
-		self.parametersDefaults['height'] = 0.25
+		self.parametersDefaults['height'] = 0.2
+		self.parametersDefaults['dx'] = 0
+		self.parametersDefaults['dy'] = 0
+		self.parametersDefaults['dz'] = 0
+		
 		self.parametersDefaults['dt'] = 1e-2
+		self.parametersDefaults['nb_it'] = 100
+		self.parametersDefaults['groundKnots'] = 25
+		self.parametersDefaults['flyingKnots'] = 25
 
 		self.parametersDefaults['gepetto_viewer'] = False
 		self.parametersDefaults['debug'] = True
-		self.parametersDefaults['verbose'] = False
+		self.parametersDefaults['verbose'] = True
 	
 	def generateTrajectory(self, **kwargs):
 		import time
@@ -880,11 +887,11 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 
 		# Load parameters of the trajectory
 		self.setParametersFromDict(**kwargs)
-		param_vertVel = self.getParameter('verticalVelocity')
 		
 		# Loading the solo model
 		solo = loadSolo(False)
 		robot_model = solo.model
+		robot_model.effortLimit = robot_model.effortLimit*3/1000
 		lims = robot_model.effortLimit
 
 		# Setting up CoM problem
@@ -897,8 +904,14 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		x0 = np.concatenate([q0, v0])
 
 		# Defining the CoM gait parameters
-		Jumping_gait = {'jumpHeight': self.getParameter('height'), 'jumpLength': [0,0,0.5], 'timeStep': self.getParameter('dt'), 'groundKnots': 25, 'flyingKnots': 25}
+		Jumping_gait = {}
+		Jumping_gait['jumpHeight'] = self.getParameter('height')
+		Jumping_gait['jumpLength'] = [self.getParameter('dx'), self.getParameter('dy'), self.getParameter('dz')]
+		Jumping_gait['timeStep'] = self.getParameter('dt')
+		Jumping_gait['groundKnots'] = self.getParameter('groundKnots')
+		Jumping_gait['flyingKnots'] = self.getParameter('flyingKnots')
 
+		
 		# Setting up the control-limited DDP solver
 		boxddp = crocoddyl.SolverBoxDDP(
 			gait.createJumpingProblem(x0, Jumping_gait['jumpHeight'], Jumping_gait['jumpLength'], 
@@ -925,7 +938,7 @@ class TrajectoryGen_Croco(TrajectoryGenerator):
 		us = boxddp.problem.quasiStatic([solo.model.defaultState] * boxddp.problem.T)
 
 		# Solve the DDP problem
-		boxddp.solve(xs, us, 100, False, 0.1)
+		boxddp.solve(xs, us, self.getParameter('nb_it'), False, 0.1)
 
 		# Display the entire motion
 		if self.getParameter('gepetto_viewer'):
