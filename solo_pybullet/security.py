@@ -14,15 +14,20 @@ class SecurityChecker:
         self.qa_dot_lim = np.array([360, 720, 1080])
         self.qa_dot_lim = np.deg2rad(self.qa_dot_lim)
 
+        # Torques limits for actuators
+        self.torques_limit = np.array([3, 3, 3])
+
         # Security check elements
         self.flag_contact = False
         self.flag_limit = False
         self.flag_limit_dot = False
+        self.flag_torque = False
         
         self.nb_contacts = 0
         self.minAngle = None
         self.maxAngle = None
         self.maxSpeed = np.zeros(12)
+        self.maxTorques = np.zeros(12)
 
         # If true, prints informations while running
         self.verbose = False
@@ -34,16 +39,18 @@ class SecurityChecker:
         self.flag_contact = False
         self.flag_limit = False
         self.flag_limit_dot = False
+        self.flag_torque = False
 
         self.nb_contacts = 0
         self.minAngle = None
         self.maxAngle = None
         self.maxSpeed = np.zeros(12)
+        self.maxTorques = np.zeros(12)
     
     """
     Checks if a contact occured between frames and ground.
     """
-    def check_contact(self, solo, q, qdot):
+    def check_contact(self, solo):
         ret = False
         contacts = p.getContactPoints()
 
@@ -70,7 +77,7 @@ class SecurityChecker:
     Checks if one of the joint went too far.
     :ret Returns true if a limit is overpassed
     """
-    def check_limits(self, solo, q, qdot):
+    def check_limits(self, q):
         ret = False
         qa = q[7:].reshape((12))
 
@@ -106,18 +113,21 @@ class SecurityChecker:
     Checks if one of the joint went too fast.
     :ret Returns true if a limit is overpassed
     """
-    def check_speed(self, solo, q, qdot):
+    def check_speed(self, qdot):
         ret = False
-        qa_dot = qdot[6:].reshape((12))
+        qa_dot = abs(qdot[6:].reshape((12)))
 
-        # Checking limits
         for leg in range(4):
             for art in range(3):
                 qdot = qa_dot[3*leg+art]
+
+                # Update max speed
                 qdot_max = self.maxSpeed[3*leg+art]
                 if qdot > qdot_max:
                     self.maxSpeed[3*leg+art] = qdot
-                if (self.qa_dot_lim[art] and abs(qdot)>self.qa_dot_lim[art]):
+                
+                # Check speed
+                if (self.qa_dot_lim[art] and qdot>self.qa_dot_lim[art]):
                     if self.verbose:
                         print("Went to speed on leg {0} joint {1} (id={2}): {3} °/s ({4} °/s).".format(leg, art, 3*leg+art, np.rad2deg(qdot), np.rad2deg(self.qa_dot_lim[art])))
                     self.flag_limit_dot = True
@@ -126,17 +136,45 @@ class SecurityChecker:
         return ret
     
     """
+    Checks if one of the joint went too fast.
+    :ret Returns true if a limit is overpassed
+    """
+    def check_torques(self, torques):
+        ret = False
+        torques = abs(torques.reshape((12)))
+
+        # Checking limits
+        for leg in range(4):
+            for art in range(3):
+                torque = torques[3*leg+art]
+
+                # Update max torque
+                torque_max = self.maxTorques[3*leg+art]
+                if torque > torque_max:
+                    self.maxTorques[3*leg+art] = torque
+                
+                if (self.torques_limit[art] and torque>self.torques_limit[art]):
+                    if self.verbose:
+                        print("Went to fort on leg {0} joint {1} (id={2}): {3} °/s ({4} °/s).".format(leg, art, 3*leg+art, torque, self.torques_limit[art]))
+                    self.flag_torque = True
+                    ret = True
+        
+        return ret
+    
+    """
     Checks everything.
     """
-    def check_integrity(self, solo, q, qdot):
+    def check_integrity(self, solo, q, qdot, torques):
         ret = False
 
         # Check contacts
-        ret = True if self.check_contact(solo, q, qdot) else ret
+        ret = True if self.check_contact(solo) else ret
         # Check angular limits
-        ret = True if self.check_limits(solo, q, qdot) else ret
+        ret = True if self.check_limits(q) else ret
         # Check speed limits
-        ret = True if self.check_speed(solo, q, qdot) else ret
+        ret = True if self.check_speed(qdot) else ret
+        # Check torques limits
+        ret = True if self.check_torques(torques) else ret
         
         return ret
     
@@ -170,7 +208,7 @@ class SecurityChecker:
                             overpassed = "bad" if q_min<q_lim[0] else " ok"
                             print("\t\t\t-Lower: {0} ({1:+05.1f}°, {2:+05.1f}°)".format(overpassed, q_min, q_lim[0]))
                         else:
-                            print("\t\t\t-Lower: Not set")
+                            print("\t\t\t-Lower:  ok (not set)")
                         
                         # Upper Bound
                         if q_lim[1]:
@@ -178,7 +216,7 @@ class SecurityChecker:
 
                             print("\t\t\t-Upper: {0} ({1:+05.1f}°, {2:+05.1f}°)".format(overpassed, q_max, q_lim[1]))
                         else:
-                            print("\t\t\t-Upper: Not set")
+                            print("\t\t\t-Upper:  ok (not set)")
 
         # Angular Speeds results
         print("\t-Angular Speeds: ", "OVERPASSED" if self.flag_limit_dot else "OK")
@@ -191,9 +229,22 @@ class SecurityChecker:
                 if show_all or self.verbose or is_bad:
                     overpassed = "bad" if is_bad else " ok"
 
-                    print("\t\t- Leg {0} joint {1} (id={2:2d}): {3} ({4:0.0f}°/s, {5:0.0f}°/s).".format(leg, art, 3*leg+art, overpassed, np.rad2deg(qdot), np.rad2deg(qdot_lim)))
+                    print("\t\t- Leg {0} joint {1} (id={2:2d}): {3} ({4:.0f}°/s, {5:.0f}°/s).".format(leg, art, 3*leg+art, overpassed, np.rad2deg(qdot), np.rad2deg(qdot_lim)))
+
+        # Torques results
+        print("\t-Torques: ", "OVERPASSED" if self.flag_torque else "OK")
+        for leg in range(4):
+            for art in range(3):
+                torque = self.maxTorques[3*leg+art]
+                torque_lim = self.torques_limit[art]
+                is_bad = (torque_lim and torque>torque_lim)
+
+                if show_all or self.verbose or is_bad:
+                    overpassed = "bad" if is_bad else " ok"
+
+                    print("\t\t- Leg {0} joint {1} (id={2:2d}): {3} ({4:0.2f}N.m, {5:0.2f}N.m).".format(leg, art, 3*leg+art, overpassed, torque, torque_lim))
 
         print("")
 
-        return self.flag_contact or self.flag_limit or self.flag_limit_dot
+        return self.flag_contact or self.flag_limit or self.flag_limit_dot or self.flag_torque
 

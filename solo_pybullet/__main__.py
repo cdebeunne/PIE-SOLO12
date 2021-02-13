@@ -81,7 +81,7 @@ while not control.ended:
     # Compute one step of simulation
     p.stepSimulation()
 
-    secu.check_integrity(solo, q, qdot)
+    secu.check_integrity(solo, q, qdot, jointTorques)
 
     if kwargs_simu.get("enableGUI", False):
         solo.display(q)
@@ -96,4 +96,4 @@ while not control.ended:
 p.disconnect()
 
 # Print out security results
-secu.show_results()
+secu.show_results(show_all=False)
