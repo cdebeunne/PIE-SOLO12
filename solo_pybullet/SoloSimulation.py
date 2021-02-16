@@ -52,7 +52,7 @@ class SoloSimulation:
                                     forces=[0.0 for m in self.revoluteJointIndices])
         
         # Enable torque control for revolute joints
-        jointTorques = [0.0 for m in self.revoluteJointIndices]
+        jointTorques = np.zeros(len(self.revoluteJointIndices))
         self.set_joint_torques(jointTorques)
 
         # Compute one step of simulation for initialization
