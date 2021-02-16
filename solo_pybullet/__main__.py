@@ -7,9 +7,9 @@
 import pybullet as p  # PyBullet simulator
 import time
 
-from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco, TrajectoryGen_Splines
-from .controller import Controller_Traj
-from .security import SecurityChecker
+from solo_jump.TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco, TrajectoryGen_Splines
+from solo_jump.Controller import Controller_Traj
+from solo_jump.SecurityChecker import SecurityChecker
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
