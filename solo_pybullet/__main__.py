@@ -7,7 +7,7 @@
 import pybullet as p  # PyBullet simulator
 import time
 
-from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco
+from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco, TrajectoryGen_Splines
 from .controller import Controller_Traj
 from .security import SecurityChecker
 
@@ -29,14 +29,13 @@ robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
 # Parameters for 
 kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
 kwargs_KinInv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True, "feet_traj_params":kwargs_trajec}
-
+kwargs_splines = {"t_crouch":1, "t_jump":1.2, "t_air":2, "dt":0.05}
 kwargs_TSID = {"verticalVelocity":0.2, "kp":10, "kd":5}
-
 kwargs_Croco = {'gepetto_viewer':False, "height":0.1}
 
 # Compute Joint Trajectory
-traj_gen = TrajectoryGen_Croco()
-traj_gen.setParametersFromDict(**kwargs_Croco)
+traj_gen = TrajectoryGen_Splines()
+traj_gen.setParametersFromDict(**kwargs_splines)
 actuators_traj = traj_gen.generateTrajectory()
 
 # Plot trajectory of the actuators
