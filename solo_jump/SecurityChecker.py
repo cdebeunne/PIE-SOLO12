@@ -107,7 +107,7 @@ class SecurityChecker:
                 # Check limit
                 if (self.qa_lim[art, 0] and q<self.qa_lim[art, 0]) or (self.qa_lim[art, 1] and q>self.qa_lim[art, 1]):
                     if self.verbose:
-                        print("Went to loin on leg {0} joint {1} (id={2}): {3}° ({4}°).".format(leg, i, 3*leg+art, np.rad2deg(q), np.rad2deg(self.qa_lim[art])))
+                        print("Went to loin on leg {0} joint {1} (id={2}): {3}° ({4}°).".format(leg, art, 3*leg+art, np.rad2deg(q), np.rad2deg(self.qa_lim[art])))
                     self.flag_limit = True
                     ret = True
         

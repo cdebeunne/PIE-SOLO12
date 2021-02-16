@@ -271,4 +271,4 @@ class Controller_Traj(Controller):
 	"""
 	def initialize(self, time=0):
 		self.initialized = True
-		self.offest = t
+		self.offest = time
