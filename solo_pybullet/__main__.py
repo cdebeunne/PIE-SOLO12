@@ -10,6 +10,7 @@ import time
 from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco, TrajectoryGen_Splines
 from .controller import Controller_Traj
 from .security import SecurityChecker
+from .performances import PerformancesEvaluator
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
@@ -34,8 +35,8 @@ kwargs_TSID = {"verticalVelocity":0.2, "kp":10, "kd":5}
 kwargs_Croco = {'gepetto_viewer':False, "height":0.1}
 
 # Compute Joint Trajectory
-traj_gen = TrajectoryGen_Splines()
-traj_gen.setParametersFromDict(**kwargs_splines)
+traj_gen = TrajectoryGen_TSID()
+traj_gen.setParametersFromDict(**kwargs_TSID)
 actuators_traj = traj_gen.generateTrajectory()
 
 # Plot trajectory of the actuators
@@ -53,6 +54,12 @@ control.debug = True
 ##############
 
 secu = SecurityChecker()
+
+##################
+#  PERFORMANCES  #
+##################
+
+perfo = PerformancesEvaluator()
 
 ###############
 #  MAIN LOOP ##
@@ -82,6 +89,7 @@ while not control.ended:
 
     if control.initialized:
         secu.check_integrity(solo, q, qdot, jointTorques)
+        perfo.get_jumpHeight(q)
 
     if kwargs_simu.get("enableGUI", False):
         solo.display(q)
@@ -97,3 +105,6 @@ p.disconnect()
 
 # Print out security results
 secu.show_results(show_all=False)
+
+# Print out the performances
+perfo.show_results()
