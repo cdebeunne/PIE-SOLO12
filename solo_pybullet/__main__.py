@@ -10,6 +10,7 @@ import time
 from .TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco
 from .controller import Controller_Traj
 from .security import SecurityChecker
+from .performances import PerformancesEvaluator
 
 from .initialization_simulation import configure_simulation, getPosVelJoints
 
@@ -55,6 +56,12 @@ control.debug = True
 
 secu = SecurityChecker()
 
+#################
+#  Performaces  #
+#################
+
+perfo = PerformancesEvaluator()
+
 ###############
 #  MAIN LOOP ##
 ###############
@@ -82,6 +89,7 @@ while not control.ended:
     p.stepSimulation()
 
     secu.check_integrity(solo, q, qdot, jointTorques)
+    perfo.get_jumpHeight(q)
 
     if kwargs_simu.get("enableGUI", False):
         solo.display(q)
@@ -97,3 +105,6 @@ p.disconnect()
 
 # Print out security results
 secu.show_results(show_all=False)
+
+# Print out performances results
+perfo.show_results()
