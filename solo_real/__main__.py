@@ -6,6 +6,9 @@
 
 import time
 
+import libmaster_board_sdk_pywrap as mbs
+import libodri_control_interface_pywrap as oci
+
 from solo_jump.TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco, TrajectoryGen_Splines
 from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
@@ -27,7 +30,7 @@ traj_gen.setParametersFromDict(**kwargs_TSID)
 actuators_traj = traj_gen.generateTrajectory()
 
 # Plot trajectory of the actuators
-# actuators_traj.plotTrajectory(show_gains=True, show_all=True)
+actuators_traj.plotTrajectory(show_gains=True, show_all=True)
 
 ###############
 #  CONTROLLER #
@@ -41,44 +44,61 @@ control.debug = True
 ##############
 
 secu = SecurityChecker()
+secu.verbose = True
+
+###########
+#  ROBOT  #
+###########
+
+robot = oci.robot_from_yaml_file('config_solo12.yaml')
+joint_calibrator = oci.joint_calibrator_from_yaml_file('config_solo12.yaml', robot.joints)
+
+# Initialize the communication and the session.
+robot.start()
+robot.wait_until_ready()
+
+# Calibrate the robot if needed.
+robot.run_calibration(joint_calibrator)
+
+# Read the values once here. The returned values are views on the data and
+# update after the call to `robot.parse_sensor_data()`.
+robot.parse_sensor_data()
+imu_attitude = robot.imu.attitude_euler
+positions = robot.joints.positions
+velocities = robot.joints.velocities
+
+init_imu_attitude = imu_attitude.copy()
 
 ###############
 #  MAIN LOOP ##
 ###############
 
-q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
+c = 0
+dt = 0.001
+calibration_done = False
+next_tick = time.time()
 
-cur_time = 0
-while not control.ended:
-    cur_time += kwargs_simu.get("dt", 0.0001)
+while not robot.is_timeout:
+    cur_time = c*dt
 
-    # Time at the start of the loop
-    if kwargs_simu.get("enableGUI", False) and (kwargs_simu.get("realTime", False) or kwargs_simu.get("slowMo", False)):
-        t0 = time.clock()
+    robot.parse_sensor_data()
 
-    # Get position and velocity of all joints in PyBullet (free flying base + motors)
-    q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
+    if c % 2000 == 0:
+        print('IMU attitude:', imu_attitude)
+        print('joint pos   :', positions)
+        print('joint vel   :', velocities)
+        robot.robot_interface.PrintStats()
 
-    # Call controller to get torques for all joints
-    jointTorques = control.getTorques(q, qdot, t=cur_time)
+    torques = control.getTorques(positions, velocities, t=cur_time)
 
-    # Set control torques for all joints in PyBullet
-    p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
+    secu.check_limits(positions)
+    secu.check_speed(velocities)
+    secu.check_torques(torques)
 
-    # Compute one step of simulation
-    p.stepSimulation()
+    robot.joints.set_torques(torques)
 
-    if control.initialized:
-        secu.check_integrity(solo, q, qdot, jointTorques)
-
-    if kwargs_simu.get("enableGUI", False):
-        solo.display(q)
-
-        # Sleep to get a real time simulation
-        if kwargs_simu.get("realTime", False) or kwargs_simu.get("slowMo", False):
-            t_sleep = kwargs_simu.get("dt", 0.0001) - (time.clock() - t0)
-            if t_sleep > 0:
-                time.sleep(t_sleep*(kwargs_simu.get("slowMoRatio", 100) if kwargs_simu.get("slowMo", False) else 1))
+    robot.send_command_and_wait_end_of_cycle()
+    c += 1
 
 # Print out security results
-secu.show_results(show_all=False)
+secu.show_results(show_all=True)

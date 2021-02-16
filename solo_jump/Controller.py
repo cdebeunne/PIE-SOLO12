@@ -28,9 +28,8 @@ class Controller:
 	"""
 	Returns torques for standing position.
 	"""
-	def getTorques(self, q, q_dot, **kwargs):
-		qa = q[7:]
-		qa_dot = q_dot[6:]
+	def getTorques(self, qa, qa_dot, **kwargs):
+		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
 
 		objective = {}
 		objective['qa_ref'] = np.zeros((12, 1))  # target angular positions for the motors
@@ -78,6 +77,28 @@ class Controller:
 			# print(objective)
 
 		return torques
+	
+	"""
+	Returns the actuators configuration from the thing given to the controller.
+	"""
+	def getActuatorsFromRobot(self, qa, qa_dot):
+		if qa.size==12:
+			qa = qa
+		elif qa.size==12+7:
+			print("Be careful, q was given to controller instead of qa")
+			qa = qa[7:]
+		else:
+			print("Unknown size for qa (size={0}".format(qa.size))
+
+		if qa_dot.size==12:
+			qa_dot = qa_dot
+		elif qa_dot.size==12+6:
+			print("Be careful, q_dot was given to controller instead of qa_dot")
+			qa_dot = qa_dot[6:]
+		else:
+			print("Unknown size for qa_dot (size={0}".format(qa_dot.size))
+
+		return qa, qa_dot
 
 """
 Simple Jumping controller.
@@ -119,11 +140,10 @@ class Controller_Jump(Controller):
 	"""
 	Returns torques for standing position.
 	"""
-	def getTorques(self, q, q_dot, **kwargs):
+	def getTorques(self, qa, qa_dot, **kwargs):
 		from numpy.linalg import norm
 
-		qa = q[7:]
-		qa_dot = q_dot[6:]
+		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
 
 		objective = {}
 
@@ -172,13 +192,12 @@ class Controller_Traj(Controller):
 	"""
 	Returns torques for standing position.
 	"""
-	def getTorques(self, q, q_dot, **kwargs):
+	def getTorques(self, qa, qa_dot, **kwargs):
 		if not 't' in kwargs:
 			print("This controller needs \'t\' as an arguement. Returning stop.")
 			return self.stop()
 
-		qa = q[7:]
-		qa_dot = q_dot[6:]
+		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
 		t = kwargs['t']
 
 		objective = {}
