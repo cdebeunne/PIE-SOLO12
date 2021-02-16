@@ -30,12 +30,12 @@ robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
 kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
 kwargs_KinInv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True, "feet_traj_params":kwargs_trajec}
 kwargs_splines = {"t_crouch":1, "t_jump":1.2, "t_air":2, "dt":0.05}
-kwargs_TSID = {"verticalVelocity":0.2, "kp":10, "kd":5}
+kwargs_TSID = {"verticalVelocity":0.4, "kp":10, "kd":5}
 kwargs_Croco = {'gepetto_viewer':False, "height":0.1}
 
 # Compute Joint Trajectory
-traj_gen = TrajectoryGen_Splines()
-traj_gen.setParametersFromDict(**kwargs_splines)
+traj_gen = TrajectoryGen_TSID()
+traj_gen.setParametersFromDict(**kwargs_TSID)
 actuators_traj = traj_gen.generateTrajectory()
 
 # Plot trajectory of the actuators
