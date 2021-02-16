@@ -12,7 +12,7 @@ from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
 from solo_jump.PerfoChecker import PerformancesEvaluator
 
-from .initialization_simulation import configure_simulation, getPosVelJoints
+from .SoloSimulation import SoloSimulation
 
 ####################
 #  INITIALIZATION  #
@@ -21,7 +21,7 @@ from .initialization_simulation import configure_simulation, getPosVelJoints
 # MatplotLib must be imported after Pybullet as been initialized in order to solve conflicts.
 
 kwargs_simu = {"dt":0.0001, "max_time":10, "enableGravity":True, "realTime":False, "enableGUI":True, "slowMo":False, "slowMoRatio":100}
-robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
+simulator = SoloSimulation(enableGUI=True)
 
 ######################
 #  IMPORT TRAJECTORY #
@@ -65,8 +65,6 @@ perfo = PerformancesEvaluator()
 #  MAIN LOOP ##
 ###############
 
-q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
-
 cur_time = 0
 while not control.ended:
     cur_time += kwargs_simu.get("dt", 0.0001)
@@ -76,32 +74,23 @@ while not control.ended:
         t0 = time.clock()
 
     # Get position and velocity of all joints in PyBullet (free flying base + motors)
-    q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
+    q, qdot = simulator.get_state()
 
     # Call controller to get torques for all joints
     jointTorques = control.getTorques(q, qdot, t=cur_time)
 
     # Set control torques for all joints in PyBullet
-    p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
-
-    # Compute one step of simulation
-    p.stepSimulation()
+    simulator.set_joint_torques(jointTorques)
 
     if control.initialized:
-        secu.check_integrity(solo, q, qdot, jointTorques)
+        secu.check_integrity(q, qdot, jointTorques)
         perfo.get_jumpHeight(q)
 
-    if kwargs_simu.get("enableGUI", False):
-        solo.display(q)
-
-        # Sleep to get a real time simulation
-        if kwargs_simu.get("realTime", False) or kwargs_simu.get("slowMo", False):
-            t_sleep = kwargs_simu.get("dt", 0.0001) - (time.clock() - t0)
-            if t_sleep > 0:
-                time.sleep(t_sleep*(kwargs_simu.get("slowMoRatio", 100) if kwargs_simu.get("slowMo", False) else 1))
+    # Compute one step of simulation
+    simulator.step()
 
 # Shut down the PyBullet client
-p.disconnect()
+simulator.end()
 
 # Print out security results
 secu.show_results(show_all=False)

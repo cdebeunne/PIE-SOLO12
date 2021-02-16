@@ -210,12 +210,9 @@ class Controller_Traj(Controller):
 			objective['qa_ref'] = self.trajectory.getElement('q', 0).reshape((12, 1))
 			objective['qa_dot_ref'] = self.trajectory.getElement('q_dot', 0).reshape((12, 1))
 			objective['gains'] = self.default_parameters['init_gains']
-			c = p.getContactPoints()
-
-			contacts = p.getContactPoints()
-
+			
 			# If it is reached, continue
-			if (np.linalg.norm(objective['qa_ref']-qa)< self.default_parameters['init_threshold']) and (len(contacts) != 0):
+			if np.linalg.norm(objective['qa_ref']-qa)< self.default_parameters['init_threshold']:
 				if self.debug:
 					print('Reached first state in {0:3.2f} s.'.format(t))
 				self.initialized = True
