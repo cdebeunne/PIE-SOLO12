@@ -69,10 +69,11 @@ velocities = robot.joints.velocities
 
 init_imu_attitude = imu_attitude.copy()
 
-###############
-#  MAIN LOOP ##
-###############
+##############
+#  MAIN LOOP #
+##############
 
+# Ask if ready
 print("Ready to rock !")
 print("Do you wanna rock ? [Y] to continue, [n] to abort")
 key = input()
@@ -80,23 +81,52 @@ key = input()
 if key is not "Y":
     exit
 
+# Initialisation of the trajectory
+print("\n")
+print("Going to the first position of the trajectory.")
+
 c = 0
-dt = 0.001
-calibration_done = False
-next_tick = time.time()
-
-while not robot.is_timeout:
-    cur_time = c*dt
-
+reached_init = False
+while not robot.is_timeout and not reached_init:
     robot.parse_sensor_data()
+    torques, reached_init = control.gotoFirstPosition(positions, velocities)
 
     if c % 2000 == 0:
         print('IMU attitude:', imu_attitude)
         print('joint pos   :', positions)
         print('joint vel   :', velocities)
+        print('torques     :', torques)
         robot.robot_interface.PrintStats()
 
-    torques = control.getTorques(positions, velocities, t=cur_time)
+    robot.joints.set_torques(torques)
+
+    robot.send_command_and_wait_end_of_cycle()
+    c += 1
+
+print("Reached first position.")
+print("Do you wanna continue ? [Y] to continue, [n] to abort")
+key = input()
+
+if key is not "Y":
+    exit
+
+# Following the trajectory
+c = 0
+dt = 0.001
+calibration_done = False
+control.initialize(time.time())
+next_tick = time.time()
+
+while not robot.is_timeout:
+    robot.parse_sensor_data()
+    torques = control.getTorques(positions, velocities, t=time.time())
+
+    if c % 2000 == 0:
+        print('IMU attitude:', imu_attitude)
+        print('joint pos   :', positions)
+        print('joint vel   :', velocities)
+        print('torques     :', torques)
+        robot.robot_interface.PrintStats()
 
     secu.check_limits(positions)
     secu.check_speed(velocities)

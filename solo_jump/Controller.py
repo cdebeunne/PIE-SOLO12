@@ -244,6 +244,7 @@ class Controller_Traj(Controller):
 	Returns torques to reach first position.
 	The used gains are init_gains.
 	This does not set self.initialized of self.offset.
+	Call self.initialize to do so.
 
 	:ret Tuple containing torques then boolean for arrived.
 	"""
@@ -265,3 +266,9 @@ class Controller_Traj(Controller):
 		
 		return self.PD(qa, qa_dot, **objective), False
 
+	"""
+	Setup the controller.
+	"""
+	def initialize(self, time=0):
+		self.initialized = True
+		self.offest = t
