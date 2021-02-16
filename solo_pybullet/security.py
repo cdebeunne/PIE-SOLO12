@@ -179,6 +179,22 @@ class SecurityChecker:
         return ret
     
     """
+    Checks trajectory.
+    """
+    def check_trajectory(self, traj):
+        ret = False
+
+        for i in range(traj.getSize()):
+            # Check angular limits
+            ret = True if self.check_limits(traj.getElement('q', i)) else ret
+            # Check speed limits
+            ret = True if self.check_speed(traj.getElement('q_dot', i)) else ret
+            # Check torques limits
+            ret = True if self.check_torques(traj.getElement('torques', i)) else ret
+        
+        return ret
+
+    """
     Print results of the security check.
     """
     def show_results(self, show_all=False):
