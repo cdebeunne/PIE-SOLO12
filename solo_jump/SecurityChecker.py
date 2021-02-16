@@ -49,8 +49,9 @@ class SecurityChecker:
     
     """
     Checks if a contact occured between frames and ground.
+    Can only run with pybullet.
     """
-    def check_contact(self, solo):
+    def check_contact(self):
         ret = False
         contacts = p.getContactPoints()
 
@@ -171,11 +172,11 @@ class SecurityChecker:
     """
     Checks everything.
     """
-    def check_integrity(self, solo, q, qdot, torques):
+    def check_integrity(self, q, qdot, torques):
         ret = False
 
         # Check contacts
-        ret = True if self.check_contact(solo) else ret
+        ret = True if self.check_contact() else ret
         # Check angular limits
         ret = True if self.check_limits(q) else ret
         # Check speed limits
