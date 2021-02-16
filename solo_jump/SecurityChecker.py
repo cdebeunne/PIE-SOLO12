@@ -79,7 +79,11 @@ class SecurityChecker:
     """
     def check_limits(self, q):
         ret = False
-        qa = q[7:].reshape((12))
+
+        if q.size==12:
+            qa = q.reshape((12))
+        else:
+            qa = q[7:].reshape((12))
 
         if self.maxAngle is None:
             self.maxAngle = qa
@@ -115,7 +119,10 @@ class SecurityChecker:
     """
     def check_speed(self, qdot):
         ret = False
-        qa_dot = abs(qdot[6:].reshape((12)))
+        if qdot.size==12:
+            qa_dot = qdot.reshape((12))
+        else:
+            qa_dot = qdot[6:].reshape((12))
 
         for leg in range(4):
             for art in range(3):
