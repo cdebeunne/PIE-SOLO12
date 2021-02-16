@@ -10,7 +10,7 @@ class PerformancesEvaluator:
     Check the position of the CoM 
     and updates maxHeightCoM if it is at its max
     """
-    def get_jumpHeight(self, q):
+    def update_performance(self, q):
         CoMHeight = q[2]
         if CoMHeight > self.maxHeightCoM:
             self.maxHeightCoM = CoMHeight

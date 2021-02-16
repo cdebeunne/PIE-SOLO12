@@ -193,7 +193,7 @@ class Controller_Traj(Controller):
 	"""
 	Returns torques for standing position.
 	"""
-	def getTorques(self, qa, qa_dot, **kwargs):
+	def get_torques(self, qa, qa_dot, **kwargs):
 		if not 't' in kwargs:
 			print("This controller needs \'t\' as an arguement. Returning stop.")
 			return self.stop()
@@ -203,44 +203,26 @@ class Controller_Traj(Controller):
 
 		objective = {}
 
-		# Reach the first position of the trajectory first
-		if not self.initialized :
-			self.offset = t
+		# Apply offset
+		t = t-self.offset
 
-			objective['qa_ref'] = self.trajectory.getElement('q', 0).reshape((12, 1))
-			objective['qa_dot_ref'] = self.trajectory.getElement('q_dot', 0).reshape((12, 1))
-			objective['gains'] = self.default_parameters['init_gains']
-			c = p.getContactPoints()
+		# Get the current state in the trajectory
+		if t>self.trajectory.getElement('t', -1) and not self.ended:
+			if self.debug:
+				print("End of trajectory.", end='')
+				if self.stopAtEnd:
+					print("Stopping actuators.")
+				else:
+					print("Staying in last state.")
+			self.ended = True
+		
+		if self.ended and self.stopAtEnd:
+			return self.stop()
 
-			contacts = p.getContactPoints()
-
-			# If it is reached, continue
-			if (np.linalg.norm(objective['qa_ref']-qa)< self.default_parameters['init_threshold']) and (len(contacts) != 0):
-				if self.debug:
-					print('Reached first state in {0:3.2f} s.'.format(t))
-				self.initialized = True
-		# Then run the trajectory
-		else:
-			# Apply offset
-			t = t-self.offset
-
-			# Get the current state in the trajectory
-			if t>self.trajectory.getElement('t', -1) and not self.ended:
-				if self.debug:
-					print("End of trajectory.", end='')
-					if self.stopAtEnd:
-						print("Stopping actuators.")
-					else:
-						print("Staying in last state.")
-				self.ended = True
-			
-			if self.ended and self.stopAtEnd:
-				return self.stop()
-
-			objective['qa_ref'] = 		self.trajectory.getElementAtTime('q', t).reshape((12, 1))
-			objective['qa_dot_ref'] =  	self.trajectory.getElementAtTime('q_dot', t).reshape((12, 1))
-			objective['torques_ff'] =  	self.trajectory.getElementAtTime('torques', t).reshape((12, 1))
-			objective['gains'] = 		self.trajectory.getElementAtTime('gains', t)
+		objective['qa_ref'] = 		self.trajectory.getElementAtTime('q', t).reshape((12, 1))
+		objective['qa_dot_ref'] =  	self.trajectory.getElementAtTime('q_dot', t).reshape((12, 1))
+		objective['torques_ff'] =  	self.trajectory.getElementAtTime('torques', t).reshape((12, 1))
+		objective['gains'] = 		self.trajectory.getElementAtTime('gains', t)
 		
 		return self.PD(qa, qa_dot, **objective)
 
