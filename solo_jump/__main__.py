@@ -22,6 +22,9 @@ traj_gen.printInfo()
 # Generate the trajectory
 traj = traj_gen.generateTrajectory()
 
+# Save the trajectory
+traj.saveTrajectory('traj.npz')
+
 # Plot the trajectory
 traj.plotTrajectory(show_gains=True, show_all=True)
 
