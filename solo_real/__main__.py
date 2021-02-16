@@ -73,6 +73,13 @@ init_imu_attitude = imu_attitude.copy()
 #  MAIN LOOP ##
 ###############
 
+print("Ready to rock !")
+print("Do you wanna rock ? [Y] to continue, [n] to abort")
+key = input()
+
+if key is not "Y":
+    exit
+
 c = 0
 dt = 0.001
 calibration_done = False

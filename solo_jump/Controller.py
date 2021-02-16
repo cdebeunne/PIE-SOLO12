@@ -239,3 +239,29 @@ class Controller_Traj(Controller):
 			objective['gains'] = 		self.trajectory.getElementAtTime('gains', t)
 		
 		return self.PD(qa, qa_dot, **objective)
+
+	"""
+	Returns torques to reach first position.
+	The used gains are init_gains.
+	This does not set self.initialized of self.offset.
+
+	:ret Tuple containing torques then boolean for arrived.
+	"""
+	def gotoFirstPosition(self, qa, qa_dot, setup=False, **kwargs):
+		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
+		
+		objective = {}
+
+		# Reach the first position of the trajectory first
+		objective['qa_ref'] = self.trajectory.getElement('q', 0).reshape((12, 1))
+		objective['qa_dot_ref'] = self.trajectory.getElement('q_dot', 0).reshape((12, 1))
+		objective['gains'] = self.default_parameters['init_gains']
+
+		# If it is reached, continue
+		if np.linalg.norm(objective['qa_ref']-qa) < self.default_parameters['init_threshold']:
+			if self.debug:
+				print('Arrived in first state.')
+			return self.PD(qa, qa_dot, **objective), True
+		
+		return self.PD(qa, qa_dot, **objective), False
+
