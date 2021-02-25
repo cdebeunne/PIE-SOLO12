@@ -5,46 +5,41 @@
 #####################
 
 import time
+import os
 
 import pybullet as p  # PyBullet simulator
 
-from solo_jump.TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco, TrajectoryGen_Splines
+from solo_jump.TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_Splines
 from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
-
-from solo_pybullet.initialization_simulation import configure_simulation, getPosVelJoints
+from solo_pybullet.SoloSimulation import SoloSimulation
 
 ####################
 #  INITIALIZATION  #
 ####################
 
 # MatplotLib must be imported after Pybullet as been initialized in order to solve conflicts.
+simulator = SoloSimulation(enableGUI=True, enableGravity=True)
 
-kwargs_simu = {"dt":0.0001, "max_time":10, "enableGravity":True, "realTime":False, "enableGUI":True, "slowMo":False, "slowMoRatio":100}
-robotId, solo, revoluteJointIndices = configure_simulation(**kwargs_simu)
+##############
+# TRAJECTORY #
+##############
 
-######################
-#  IMPORT TRAJECTORY #
-######################
-
-# Parameters for 
-kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
-kwargs_KinInv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True, "feet_traj_params":kwargs_trajec}
-kwargs_splines = {"t_crouch":1, "t_jump":1.2, "t_air":2, "dt":0.05}
-kwargs_TSID = {"verticalVelocity":0.4, "kp":10, "kd":5}
-kwargs_Croco = {'gepetto_viewer':False, "height":0.1}
+kwargs_traj = {"t_crouch":1, "t_jump":1.2, "t_air":2, "dt":0.05}
 
 # Compute Joint Trajectory
-traj_gen = TrajectoryGen_TSID()
-traj_gen.setParametersFromDict(**kwargs_TSID)
+traj_gen = TrajectoryGen_Splines()
+traj_gen.setParametersFromDict(**kwargs_traj)
 actuators_traj = traj_gen.generateTrajectory()
 
-# Plot trajectory of the actuators
-actuators_traj.plotTrajectory(show_gains=True, show_all=True)
+actuators_traj.saveTrajectory("/tmp/traj.npz")
 
 ###############
 #  CONTROLLER #
 ###############
+
+actuators_traj = ActuatorsTrajectory()
+actuators_traj.loadTrajectory("/tmp/traj.npz", verbose=True)
 
 control = Controller_Traj(actuators_traj)
 control.debug = True
@@ -73,12 +68,23 @@ if key is not "Y":
 print("\n")
 print("Going to the first position of the trajectory.")
 
+# Reache first state
 reached_init = False
-while not reached_init:
-    q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
-    jointTorques, reached_init = control.gotoFirstPosition(q, qdot)
-    p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
-    p.stepSimulation()
+on_ground = False
+
+simulator.change_gravity(0)
+
+while not reached_init or not on_ground:
+    qa, qadot = simulator.get_state_a()
+
+    jointTorques, reached_init = control.goto_first_position(qa, qadot)
+    on_ground = simulator.is_on_ground()
+    
+    if reached_init:
+        simulator.change_gravity(-9.81)
+
+    simulator.set_joint_torques(jointTorques)
+    simulator.step()
 
 print("Reached first position.")
 print("Do you wanna continue ? [Y] to continue, [n] to abort")
@@ -89,22 +95,21 @@ if key is not "Y":
     exit()
 
 # Following the trajectory
-calibration_done = False
-control.initialize(0)
-next_tick = time.time()
+control.initialize(simulator.simulation_time)
 
-cur_time = 0
 while not control.ended:
-    cur_time += kwargs_simu.get("dt", 0.0001)
-    q, qdot = getPosVelJoints(robotId, revoluteJointIndices)
-    jointTorques = control.getTorques(q, qdot, t=cur_time)
+    q, qdot = simulator.get_state()
+    qa, qadot = simulator.get_state_a()
 
-    secu.check_limits(q)
-    secu.check_speed(qdot)
-    secu.check_torques(jointTorques)
+    jointTorques = control.get_torques(qa, qadot, t=simulator.simulation_time)
 
-    p.setJointMotorControlArray(robotId, revoluteJointIndices, controlMode=p.TORQUE_CONTROL, forces=jointTorques)
-    p.stepSimulation()
+    secu.check_integrity(q, qdot, jointTorques)
+
+    simulator.set_joint_torques(jointTorques)
+    simulator.step()
 
 # Print out security results
 secu.show_results(show_all=True)
+
+# Delete temporary traj file
+os.remove("/tmp/traj.npz")

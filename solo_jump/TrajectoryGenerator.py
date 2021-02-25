@@ -44,24 +44,29 @@ class ActuatorsTrajectory:
         print(text)
 
     """
-    Save the trajectory in a npz file
+    Save the trajectory in a npz file.
     """
     def saveTrajectory(self, file_name):
-        t = self.trajectoryElements['t']
-        qa = self.trajectoryElements.get('q')
-        qa_dot = self.trajectoryElements.get('q_dot')
-        torques = self.trajectoryElements.get('torques')
-        gains = self.trajectoryElements.get('gains')
-        np.savez(file_name, t=t, qa=qa, qa_dot=qa_dot, torques=torques, gains=gains)
+        np.savez(file_name, **self.trajectoryElements)
 
     """
-    Load the trajectory from a npz file
+    Load the trajectory from a npz file.
     """
-    def loadTrajectory(self, file_name):
-        data = np.load(file_name)
+    def loadTrajectory(self, file_name, verbose=False):
+        if verbose:
+            print("Loading trajectory from file {0}".format(file_name))
+
+        with np.load(file_name, allow_pickle=True) as data:
+            if verbose:
+                print("\tFile opened successfully")
+            
+            for key in data:
+                if verbose:
+                    print("\tImporting element {0}".format(key))
+                
+                self.addElement(key, data[key])
         
-        for key, value in data:
-            self.addElement(key, value)
+        print("\tAll trajectory elements were loaded")
         
     """
     Returns the size of the trajectory (number of elements).
@@ -145,7 +150,7 @@ class ActuatorsTrajectory:
                 return None
         else:
             return self.trajectoryElements[entry]
-
+    
     """
     Get an element of the trajectory at the given time.
     It will return the first value after the given time. 

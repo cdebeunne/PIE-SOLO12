@@ -9,35 +9,32 @@ import time
 import libmaster_board_sdk_pywrap as mbs
 import libodri_control_interface_pywrap as oci
 
-from solo_jump.TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_InvKin, TrajectoryGen_TSID, TrajectoryGen_Croco, TrajectoryGen_Splines
+from solo_jump.TrajectoryGenerator import ActuatorsTrajectory
 from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
+
+traj_file = "test.npz"
+traj_plot = False
+check_security = False
 
 ######################
 #  IMPORT TRAJECTORY #
 ######################
 
-# Parameters for 
-kwargs_trajec = {"traj_dx0":0.05, "traj_t0":0.2, "traj_t1":0.25, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
-kwargs_KinInv = {"init_reversed":True, "tf":1.5, "dt":0.01, "debug":True, "feet_traj_params":kwargs_trajec}
-kwargs_splines = {"t_crouch":1, "t_jump":1.2, "t_air":2, "dt":0.05}
-kwargs_TSID = {"verticalVelocity":0.4, "kp":10, "kd":5}
-kwargs_Croco = {'gepetto_viewer':False, "height":0.1}
-
 # Compute Joint Trajectory
-traj_gen = TrajectoryGen_TSID()
-traj_gen.setParametersFromDict(**kwargs_TSID)
-actuators_traj = traj_gen.generateTrajectory()
+actuators_traj = ActuatorsTrajectory()
+actuators_traj.loadTrajectory(traj_file)
 
 # Plot trajectory of the actuators
-actuators_traj.plotTrajectory(show_gains=True, show_all=True)
+if traj_plot:
+    actuators_traj.plotTrajectory(show_gains=True, show_all=True)
 
 ###############
 #  CONTROLLER #
 ###############
 
 control = Controller_Traj(actuators_traj)
-control.debug = True
+control.debug = False
 
 ##############
 #  SECURITY  #
@@ -89,7 +86,7 @@ c = 0
 reached_init = False
 while not robot.is_timeout and not reached_init:
     robot.parse_sensor_data()
-    torques, reached_init = control.gotoFirstPosition(positions, velocities)
+    torques, reached_init = control.goto_first_position(positions, velocities)
 
     if c % 2000 == 0:
         print('IMU attitude:', imu_attitude)
@@ -119,7 +116,7 @@ next_tick = time.time()
 
 while not robot.is_timeout:
     robot.parse_sensor_data()
-    torques = control.getTorques(positions, velocities, t=time.time())
+    torques = control.get_torques(positions, velocities, t=time.time())
 
     if c % 2000 == 0:
         print('IMU attitude:', imu_attitude)
@@ -128,9 +125,10 @@ while not robot.is_timeout:
         print('torques     :', torques)
         robot.robot_interface.PrintStats()
 
-    secu.check_limits(positions)
-    secu.check_speed(velocities)
-    secu.check_torques(torques)
+    if check_security:
+        secu.check_limits(positions)
+        secu.check_speed(velocities)
+        secu.check_torques(torques)
 
     robot.joints.set_torques(torques)
 
@@ -138,4 +136,5 @@ while not robot.is_timeout:
     c += 1
 
 # Print out security results
-secu.show_results(show_all=True)
+if check_security:
+    secu.show_results(show_all=True)

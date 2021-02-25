@@ -259,8 +259,7 @@ class Controller_Traj(Controller):
 			print("Goto First Position:")
 			print("\t-Act Pos: {0:0.4f} (thres={1:0.4f})".format(np.linalg.norm(objective['qa_ref']-qa), self.default_parameters['init_threshold_pos']))
 			print("\t-Act Spd: {0:0.4f} (thres={1:0.4f})".format(np.linalg.norm(self.init_prec_qa-qa) if self.init_prec_qa is not None else -1, self.default_parameters['init_threshold_spd']))
-			print("\t", qa_dot)
-
+			
 		self.init_prec_qa = qa
 		
 		if reached_pos and is_stable:
