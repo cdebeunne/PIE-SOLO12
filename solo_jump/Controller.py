@@ -29,8 +29,8 @@ class Controller:
 	"""
 	Returns torques for standing position.
 	"""
-	def getTorques(self, qa, qa_dot, **kwargs):
-		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
+	def get_torques(self, qa, qa_dot, **kwargs):
+		qa, qa_dot = self.get_actuators_from_robot(qa, qa_dot)
 
 		objective = {}
 		objective['qa_ref'] = np.zeros((12, 1))  # target angular positions for the motors
@@ -41,7 +41,7 @@ class Controller:
 	"""
 	Prints current state of the controller in console
 	"""
-	def printState(self):
+	def print_state(self):
 		print("Controller State: Doing Nothing")
 
 	"""
@@ -82,7 +82,7 @@ class Controller:
 	"""
 	Returns the actuators configuration from the thing given to the controller.
 	"""
-	def getActuatorsFromRobot(self, qa, qa_dot):
+	def get_actuators_from_robot(self, qa, qa_dot):
 		if qa.size==12:
 			qa = qa
 		elif qa.size==12+7:
@@ -133,7 +133,7 @@ class Controller_Jump(Controller):
 					self.q_crouch[3*leg+art] = 0.8*pos_crouch[leg, art]
 					self.q_air[3*leg+art] = 0.5*pos_crouch[leg,art]
 
-	def printState(self):
+	def print_state(self):
 		print("Controller State:")
 		print("\t- isCrouched: {0}".format(self.isCrouched))
 		print("\t- inAir: {0}".format(self.inAir))
@@ -141,10 +141,10 @@ class Controller_Jump(Controller):
 	"""
 	Returns torques for standing position.
 	"""
-	def getTorques(self, qa, qa_dot, **kwargs):
+	def get_torques(self, qa, qa_dot, **kwargs):
 		from numpy.linalg import norm
 
-		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
+		qa, qa_dot = self.get_actuators_from_robot(qa, qa_dot)
 
 		objective = {}
 
@@ -180,25 +180,28 @@ class Controller_Traj(Controller):
 		self.offset = 0
 		self.stopAtEnd = False
 		
-		self.default_parameters['init_threshold'] = 0.3
-		self.default_parameters['init_gains'] = np.array([1, 0.5])
+		self.default_parameters['init_threshold_pos'] = 0.15
+		self.default_parameters['init_threshold_spd'] = 0.0001
+		self.default_parameters['init_gains'] = np.array([10, 0.5])
 
 		self.trajectory = trajectory
+
+		self.init_prec_qa = None
 	
-	def printState(self):
+	def print_state(self):
 		print("Controller State:")
 		print("\t- initialized: {0}".format(self.initialized))
 		print("\t- ended: {0}".format(self.ended))
 
 	"""
-	Returns torques for standing position.
+	Returns torques for corresponding to time for the given trajectory.
 	"""
 	def get_torques(self, qa, qa_dot, **kwargs):
 		if not 't' in kwargs:
 			print("This controller needs \'t\' as an arguement. Returning stop.")
 			return self.stop()
 
-		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
+		qa, qa_dot = self.get_actuators_from_robot(qa, qa_dot)
 		t = kwargs['t']
 
 		objective = {}
@@ -234,18 +237,33 @@ class Controller_Traj(Controller):
 
 	:ret Tuple containing torques then boolean for arrived.
 	"""
-	def gotoFirstPosition(self, qa, qa_dot, setup=False, **kwargs):
-		qa, qa_dot = self.getActuatorsFromRobot(qa, qa_dot)
+	def goto_first_position(self, qa, qa_dot, setup=False, **kwargs):
+		qa, qa_dot = self.get_actuators_from_robot(qa, qa_dot)
 		
 		objective = {}
 
 		# Reach the first position of the trajectory first
 		objective['qa_ref'] = self.trajectory.getElement('q', 0).reshape((12, 1))
-		objective['qa_dot_ref'] = self.trajectory.getElement('q_dot', 0).reshape((12, 1))
+		# objective['qa_dot_ref'] = self.trajectory.getElement('q_dot', 0).reshape((12, 1))
+		objective['qa_dot_ref'] = np.zeros((12, 1))
 		objective['gains'] = self.default_parameters['init_gains']
 
 		# If it is reached, continue
-		if np.linalg.norm(objective['qa_ref']-qa) < self.default_parameters['init_threshold']:
+		reached_pos = np.linalg.norm(objective['qa_ref']-qa) < self.default_parameters['init_threshold_pos']
+		if self.init_prec_qa is not None:
+			is_stable = np.linalg.norm(self.init_prec_qa-qa) < self.default_parameters['init_threshold_spd']
+		else:
+			is_stable = False
+
+		if self.debug:
+			print("Goto First Position:")
+			print("\t-Act Pos: {0:0.4f} (thres={1:0.4f})".format(np.linalg.norm(objective['qa_ref']-qa), self.default_parameters['init_threshold_pos']))
+			print("\t-Act Spd: {0:0.4f} (thres={1:0.4f})".format(np.linalg.norm(self.init_prec_qa-qa) if self.init_prec_qa is not None else -1, self.default_parameters['init_threshold_spd']))
+			print("\t", qa_dot)
+
+		self.init_prec_qa = qa
+		
+		if reached_pos and is_stable:
 			if self.debug:
 				print('Arrived in first state.')
 			return self.PD(qa, qa_dot, **objective), True
@@ -257,4 +275,4 @@ class Controller_Traj(Controller):
 	"""
 	def initialize(self, time=0):
 		self.initialized = True
-		self.offest = time
+		self.offset = time

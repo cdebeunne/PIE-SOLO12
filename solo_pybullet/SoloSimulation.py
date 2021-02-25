@@ -8,7 +8,7 @@ import pybullet as p  # PyBullet simulator
 import time
 
 class SoloSimulation:
-    def __init__(self, enableGepetto=False, enableGUI=False, enableGravity=True, dt=1e-3):
+    def __init__(self, enableGepetto=False, enableGUI=False, enableGravity=True, dt=1e-4):
         self.solo = loadSolo(False)
 
         self.enableGepetto = enableGepetto
@@ -24,6 +24,7 @@ class SoloSimulation:
             self.physicsClient = p.connect(p.DIRECT)  # noqa
         
         # Set gravity (enabled by default)
+        self.enableGravity = enableGravity
         if enableGravity:
             p.setGravity(0, 0, -9.81)
         else:
@@ -34,7 +35,7 @@ class SoloSimulation:
         p.loadURDF("plane.urdf")
 
         # Load the robot for PyBullet
-        robotStartPos = [0, 0, 0.75]
+        robotStartPos = [0, 0, 0.4]
         robotStartOrientation = p.getQuaternionFromEuler([0, 0, 0])
         p.setAdditionalSearchPath("/opt/openrobots/share/example-robot-data/robots/solo_description/robots")
         self.robotId = p.loadURDF("solo12.urdf", robotStartPos, robotStartOrientation)
@@ -81,6 +82,13 @@ class SoloSimulation:
             # Display in gepettoGUI if requiered
             if self.enableGepetto:
                 self.solo.display(self.get_q())
+
+    """
+    Change intensity of gravity.
+    intensity must be negative.
+    """
+    def change_gravity(self, intensity=-9.81):
+        p.setGravity(0, 0, intensity)
 
     """
     Returns true if the robot is touching the ground.
