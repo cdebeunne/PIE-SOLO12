@@ -44,15 +44,24 @@ class ActuatorsTrajectory:
         print(text)
 
     """
-    save the trajectory in a npz file
+    Save the trajectory in a npz file
     """
-    def saveTrajectory(self, name):
+    def saveTrajectory(self, file_name):
         t = self.trajectoryElements['t']
         qa = self.trajectoryElements.get('q')
         qa_dot = self.trajectoryElements.get('q_dot')
         torques = self.trajectoryElements.get('torques')
         gains = self.trajectoryElements.get('gains')
-        np.savez(name, t=t, qa=qa, qa_dot=qa_dot, torques=torques, gains=gains)
+        np.savez(file_name, t=t, qa=qa, qa_dot=qa_dot, torques=torques, gains=gains)
+
+    """
+    Load the trajectory from a npz file
+    """
+    def loadTrajectory(self, file_name):
+        data = np.load(file_name)
+        
+        for key, value in data:
+            self.addElement(key, value)
         
     """
     Returns the size of the trajectory (number of elements).
