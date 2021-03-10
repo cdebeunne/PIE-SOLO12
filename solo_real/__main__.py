@@ -27,7 +27,7 @@ name_interface  = parser.parse_args().interface
 #     PARAMETERS     #
 ######################
 
-traj_file = "test.npz"
+traj_file = "traj.npz"
 traj_plot = False
 check_security = False
 
@@ -87,13 +87,12 @@ if key is not "Y":
 print("\n")
 print("Going to the first position of the trajectory.")
 
-c = 0
 reached_init = False
 while not device.hardware.IsTimeout() and not reached_init:
     device.UpdateMeasurment()
     torques, reached_init = control.goto_first_position(device.q_mes, device.v_mes)
 
-    if c % 2000 == 0:
+    if device.cpt % 2000 == 0:
         print('joint pos   :', device.q_mes)
         print('joint vel   :', device.v_mes)
         print('torques     :', torques)
@@ -102,7 +101,6 @@ while not device.hardware.IsTimeout() and not reached_init:
     device.SetDesiredJointTorque(torques)
 
     device.SendCommand(WaitEndOfCycle=True)
-    c += 1
 
 print("Reached first position.")
 print("Do you wanna continue ? [Y] to continue, [n] to abort")
@@ -112,17 +110,16 @@ if key is not "Y":
     exit
 
 # Following the trajectory
-c = 0
 dt = 0.001
 calibration_done = False
 control.initialize(time.time())
 next_tick = time.time()
 
-while not device.hardware.IsTimeout():
+while not device.hardware.IsTimeout() and not control.ended:
     device.UpdateMeasurment()
     torques = control.get_torques(device.q_mes, device.v_mes, t=time.time())
 
-    if c % 2000 == 0:
+    if device.cpt % 200 == 0:
         print('joint pos   :', device.q_mes)
         print('joint vel   :', device.v_mes)
         print('torques     :', torques)
@@ -136,7 +133,14 @@ while not device.hardware.IsTimeout():
     device.SetDesiredJointTorque(torques)
 
     device.SendCommand(WaitEndOfCycle=True)
-    c += 1
+
+device.SetDesiredJointTorque([0]*nb_motors)
+device.SendCommand(WaitEndOfCycle=True)
+
+if device.hardware.IsTimeout():
+    print("Masterboard timeout detected.")
+    print("Either the masterboard has been shut down or there has been a connection issue with the cable/wifi.")
+device.hardware.Stop()  # Shut down the interface between the computer and the master board
 
 # Print out security results
 if check_security:

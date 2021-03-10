@@ -39,7 +39,7 @@ actuators_traj.saveTrajectory("/tmp/traj.npz")
 ###############
 
 actuators_traj = ActuatorsTrajectory()
-actuators_traj.loadTrajectory("/tmp/traj.npz", verbose=True)
+actuators_traj.loadTrajectory("traj.npz", verbose=True)
 
 control = Controller_Traj(actuators_traj)
 control.debug = True
