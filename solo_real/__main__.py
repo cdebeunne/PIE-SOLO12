@@ -6,7 +6,7 @@
 
 import time
 
-from solo12_ISAE import Solo12
+from .solo12_ISAE import Solo12
 
 import argparse
 
@@ -14,12 +14,18 @@ from solo_jump.TrajectoryGenerator import ActuatorsTrajectory
 from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
 
+# Parsing Arguments
+
 parser = argparse.ArgumentParser(description='Example masterboard use in python.')
 parser.add_argument('-i',
                     '--interface',
                     required=True,
                     help='Name of the interface (use ifconfig in a terminal), for instance "enp1s0"')
 name_interface  = parser.parse_args().interface
+
+######################
+#     PARAMETERS     #
+######################
 
 traj_file = "test.npz"
 traj_plot = False
