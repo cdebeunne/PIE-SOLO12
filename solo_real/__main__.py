@@ -6,12 +6,20 @@
 
 import time
 
-import libmaster_board_sdk_pywrap as mbs
-import libodri_control_interface_pywrap as oci
+from solo12_ISAE import Solo12
+
+import argparse
 
 from solo_jump.TrajectoryGenerator import ActuatorsTrajectory
 from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
+
+parser = argparse.ArgumentParser(description='Example masterboard use in python.')
+parser.add_argument('-i',
+                    '--interface',
+                    required=True,
+                    help='Name of the interface (use ifconfig in a terminal), for instance "enp1s0"')
+name_interface  = parser.parse_args().interface
 
 traj_file = "test.npz"
 traj_plot = False
@@ -47,24 +55,15 @@ secu.verbose = True
 #  ROBOT  #
 ###########
 
-robot = oci.robot_from_yaml_file('config_solo12.yaml')
-joint_calibrator = oci.joint_calibrator_from_yaml_file('config_solo12.yaml', robot.joints)
-
-# Initialize the communication and the session.
-robot.start()
-robot.wait_until_ready()
-
-# Calibrate the robot if needed.
-robot.run_calibration(joint_calibrator)
+device = Solo12(name_interface,dt=0.001)
+nb_motors = device.nb_motors
+device.Init(calibrateEncoders=True)
 
 # Read the values once here. The returned values are views on the data and
-# update after the call to `robot.parse_sensor_data()`.
-robot.parse_sensor_data()
-imu_attitude = robot.imu.attitude_euler
-positions = robot.joints.positions
-velocities = robot.joints.velocities
-
-init_imu_attitude = imu_attitude.copy()
+# update after the call to `device.UpdateMeasurment()`.
+device.UpdateMeasurment()
+positions = device.q_mes
+velocities = device.v_mes
 
 ##############
 #  MAIN LOOP #
@@ -84,20 +83,19 @@ print("Going to the first position of the trajectory.")
 
 c = 0
 reached_init = False
-while not robot.is_timeout and not reached_init:
-    robot.parse_sensor_data()
-    torques, reached_init = control.goto_first_position(positions, velocities)
+while not device.hardware.IsTimeout() and not reached_init:
+    device.UpdateMeasurment()
+    torques, reached_init = control.goto_first_position(device.q_mes, device.v_mes)
 
     if c % 2000 == 0:
-        print('IMU attitude:', imu_attitude)
-        print('joint pos   :', positions)
-        print('joint vel   :', velocities)
+        print('joint pos   :', device.q_mes)
+        print('joint vel   :', device.v_mes)
         print('torques     :', torques)
-        robot.robot_interface.PrintStats()
+        device.Print()
 
-    robot.joints.set_torques(torques)
+    device.SetDesiredJointTorque(torques)
 
-    robot.send_command_and_wait_end_of_cycle()
+    device.SendCommand(WaitEndOfCycle=True)
     c += 1
 
 print("Reached first position.")
@@ -114,25 +112,24 @@ calibration_done = False
 control.initialize(time.time())
 next_tick = time.time()
 
-while not robot.is_timeout:
-    robot.parse_sensor_data()
-    torques = control.get_torques(positions, velocities, t=time.time())
+while not device.hardware.IsTimeout():
+    device.UpdateMeasurment()
+    torques = control.get_torques(device.q_mes, device.v_mes, t=time.time())
 
     if c % 2000 == 0:
-        print('IMU attitude:', imu_attitude)
-        print('joint pos   :', positions)
-        print('joint vel   :', velocities)
+        print('joint pos   :', device.q_mes)
+        print('joint vel   :', device.v_mes)
         print('torques     :', torques)
-        robot.robot_interface.PrintStats()
+        device.Print()
 
     if check_security:
-        secu.check_limits(positions)
-        secu.check_speed(velocities)
+        secu.check_limits(device.q_mes)
+        secu.check_speed(device.v_mes)
         secu.check_torques(torques)
 
-    robot.joints.set_torques(torques)
+    device.SetDesiredJointTorque(torques)
 
-    robot.send_command_and_wait_end_of_cycle()
+    device.SendCommand(WaitEndOfCycle=True)
     c += 1
 
 # Print out security results
