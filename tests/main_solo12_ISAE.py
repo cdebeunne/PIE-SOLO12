@@ -80,12 +80,18 @@ def example_script(name_interface):
         # Kp = kp_traj[i_traj]
         # Kd = kd_traj[i_traj]
 
+        """
         # Compute torque
         q_err = q_ref - device.q_mes
         v_err = v_ref - device.v_mes
         tau = Kp*q_err + Kd*v_err + ff_ref
-
         device.SetDesiredJointTorque(tau)
+        """
+        device.SetDesiredJointPDgains([Kp]*12, [Kd]*12)
+        device.SetDesiredJointPosition(q_ref)
+        device.SetDesiredJointVelocity(v_ref)
+        device.SetDesiredJointTorque([ff_ref] * 12)
+
         device.SendCommand(WaitEndOfCycle=True)
 
         if ((device.cpt % 100) == 0):
