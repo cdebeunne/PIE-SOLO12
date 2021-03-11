@@ -4,14 +4,21 @@ import argparse
 import math
 from time import clock, sleep
 from solo12_ISAE import Solo12
+
+
 q_ref=np.zeros(12)
 v_ref=np.zeros(12)
 Kp = 0*0.1
 Kd = 0*0.01
+
+
 def example_script(name_interface):
     device = Solo12(name_interface,dt=0.001)
     nb_motors = device.nb_motors
-    device.Init(calibrateEncoders=True)
+    
+    device.Init(calibrateEncoders=True, q_ref)
+
+
     #CONTROL LOOP ***************************************************
     while ((not device.hardware.IsTimeout()) and (clock() < 200)):
         device.UpdateMeasurment()

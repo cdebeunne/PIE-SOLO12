@@ -9,7 +9,7 @@ import time
 traj_gen = TrajectoryGen_InvKin()
 
 # Set a parameter of the generator
-kwargs_trajec = {"traj_dx0":0.05, "traj_t0":2, "traj_t1":4, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[10, 2], "kds":[0.1, 0.08]}
+kwargs_trajec = {"traj_dx0":0.05, "traj_t0":2, "traj_t1":2, "traj_t2":2, "traj_z0":-0.05, "traj_zf":-0.25, "kps":[0.1, 0.2], "kds":[0.1, 0.08]}
 traj_gen.setParameter('feet_traj_params', kwargs_trajec)
 
 # Set multiple parameter of the genetor

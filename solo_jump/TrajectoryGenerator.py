@@ -21,11 +21,11 @@ class ActuatorsTrajectory:
 
         # Shapes of the entries.
         # If the size if -1, it must be size. Indifferent if size is -2.
-        self.entriesShapes = {"t":[-1], "q":[self.nbActuators, -1], "q_dot":[self.nbActuators, -1], "torques":[self.nbActuators, -1], "gains":[2, -1]}
+        self.entriesShapes = {"t":[-1], "q":[-1, self.nbActuators], "q_dot":[-1, self.nbActuators], "torques":[-1, self.nbActuators], "gains":[-1, 2]}
 
         # Default values of the entries.
         # If a default value is not defined, the trajectory will generate an error.
-        self.defaultElements = {"q":np.zeros(self.nbActuators), "q_dot":np.zeros(self.nbActuators), "torques":np.zeros(self.nbActuators), "gains":np.array([5, 1])}
+        self.defaultElements = {"q":np.zeros(self.nbActuators), "q_dot":np.zeros(self.nbActuators), "torques":np.zeros(self.nbActuators), "gains":np.array([0.2, 0.02])}
     
         self.printWarnings = False
 
@@ -144,7 +144,7 @@ class ActuatorsTrajectory:
             if len(self.trajectoryElements[entry].shape)==1:
                 return self.trajectoryElements[entry][index]
             elif len(self.trajectoryElements[entry].shape)==2:
-                return self.trajectoryElements[entry][:, index]
+                return self.trajectoryElements[entry][index, :]
             else:
                 self.printExcept("Unknown size of element in trajectory element")
                 return None
@@ -238,20 +238,20 @@ class ActuatorsTrajectory:
             # Position
             axes[i, 0].set_title(titles[i]+" Position")
             for j in range(4 if show_all else 1):
-                axes[i, 0].plot(t, qa[i+3*j,:], label=("Leg {0}".format(j+1) if show_all else 'q (rad)'))
+                axes[i, 0].plot(t, qa[:, i+3*j], label=("Leg {0}".format(j+1) if show_all else 'q (rad)'))
 
             # Speed
             if qa_dot is not None:
                 axes[i, 1].set_title(titles[i]+" Speed")
                 for j in range(4 if show_all else 1):
-                    axes[i, 1].plot(t, qa_dot[i+3*j,:], label=(None if show_all else 'q_dot (rad/s)'))
+                    axes[i, 1].plot(t, qa_dot[:, i+3*j], label=(None if show_all else 'q_dot (rad/s)'))
 
             # FeedForward
             if torques is not None:
                 torq_ax = 2 if nb_cols==3 else 1
                 axes[i, torq_ax].set_title(titles[i]+" Torque")
                 for j in range(4 if show_all else 1):
-                    axes[i, torq_ax].plot(t, torques[i+3*j,:], label=(None if show_all else 'feedforward (N.m)'))
+                    axes[i, torq_ax].plot(t, torques[:, i+3*j], label=(None if show_all else 'feedforward (N.m)'))
 
             for j in range(nb_cols):
                 axes[i, j].legend()
@@ -266,8 +266,8 @@ class ActuatorsTrajectory:
             axbig = fig.add_subplot(gs[-1, :])
 
             axbig.set_title("Gains")
-            axbig.plot(t, gains[0,:], label='Kp')
-            axbig.plot(t, gains[1,:], label='Kd')
+            axbig.plot(t, gains[:, 0], label='Kp')
+            axbig.plot(t, gains[:, 1], label='Kd')
             axbig.legend()
             axbig.grid()
             axbig.set_xlabel("Time (s)")
@@ -403,61 +403,61 @@ class TrajectoryGen_Splines(TrajectoryGenerator):
     
         # part 1 : a smooth trajectory for the crouching
         x = np.array([0, t_crouch])
-        y = np.zeros((12,2))
-        y[:,0] = q_stand
-        y[:,1] = q_crouch
+        y = np.zeros((2, 12))
+        y[0, :] = q_stand
+        y[1, :] = q_crouch
         
         xnew0 = np.arange(0, t_crouch, dt)
-        traj0 = np.zeros((12,len(xnew0)))
-        qtraj0 = np.zeros((12,len(xnew0)))
+        traj0 = np.zeros((len(xnew0), 12))
+        qtraj0 = np.zeros((len(xnew0), 12))
         for art in range(12):
-            cs = CubicSpline(x, y[art,:], bc_type='clamped')
-            traj0[art,:] = cs(xnew0)
-            qtraj0[art,:] = cs(xnew0,1)
+            cs = CubicSpline(x, y[:, art], bc_type='clamped')
+            traj0[:, art] = cs(xnew0)
+            qtraj0[:, art] = cs(xnew0,1)
                 
         # part 2 : the jump
         x = np.array([t_crouch,t_jump])
-        y = np.zeros((12,2))
-        y[:,0] = q_crouch
-        y[:,1] = q_stand
+        y = np.zeros((2, 12))
+        y[0, :] = q_crouch
+        y[1, :] = q_stand
         
         xnew1 = np.arange(t_crouch, t_jump, dt)
-        traj1 = np.zeros((12,len(xnew1)))
-        qtraj1 = np.zeros((12,len(xnew1)))
+        traj1 = np.zeros((len(xnew1), 12))
+        qtraj1 = np.zeros((len(xnew1), 12))
 
         for art in range(12):
-            cs = CubicSpline(x, y[art,:], bc_type='clamped')
-            traj1[art,:] = cs(xnew1)
-            qtraj1[art,:] = cs(xnew1,1)
+            cs = CubicSpline(x, y[:, art], bc_type='clamped')
+            traj1[:, art] = cs(xnew1)
+            qtraj1[:, art] = cs(xnew1,1)
         
         # part 3 : reaching a good position for the reception
         x = np.array([t_jump, t_air])
-        y = np.zeros((12,2))
-        y[:,0] = q_stand
-        y[:,1] = q_air
+        y = np.zeros((2, 12))
+        y[0, :] = q_stand
+        y[1, :] = q_air
         
         xnew2 = np.arange(t_jump, t_air, dt)
-        traj2 = np.zeros((12,len(xnew2)))
-        qtraj2 = np.zeros((12,len(xnew2)))
+        traj2 = np.zeros((len(xnew2), 12))
+        qtraj2 = np.zeros((len(xnew2), 12))
         for art in range(12):
-            cs = CubicSpline(x, y[art,:], bc_type='clamped')
-            traj2[art,:] = cs(xnew2)
-            qtraj2[art,:] = cs(xnew2,1)
+            cs = CubicSpline(x, y[:, art], bc_type='clamped')
+            traj2[:, art] = cs(xnew2)
+            qtraj2[:, art] = cs(xnew2,1)
             
         # part 4 : building the whole trajectory    
         xnew = np.concatenate((xnew0,xnew1, xnew2))
-        q_traj = np.concatenate((traj0, traj1, traj2), axis = 1)
-        qdot_traj = np.concatenate((qtraj0, qtraj1, qtraj2), axis = 1)
+        q_traj = np.concatenate((traj0, traj1, traj2), axis = 0)
+        qdot_traj = np.concatenate((qtraj0, qtraj1, qtraj2), axis = 0)
         
         # let's set the gain during the trajectory
-        gains = np.zeros((2,len(xnew)))
+        gains = np.zeros((len(xnew), 2))
         for i in range(len(xnew)):
             if xnew[i] < t_crouch:
-                gains[:,i] = np.array([1,10])
+                gains[i, :] = np.array([0.1, 0.01])
             if xnew[i] > t_crouch and xnew[i] < t_jump:
-                gains[:,i] = np.array([0.5,10])
+                gains[i, :] = np.array([0.01, 0.001])
             else:
-                gains[:,i] = np.array([1,10])
+                gains[i, :] = np.array([0.1, 0.01])
 
         # Define trajectory for return
         traj = ActuatorsTrajectory()
@@ -501,7 +501,6 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         self.setParametersFromDict(**kwargs)
 
         # params: tf, dt, kp, kd, kps, kds, debug, init_reversed, max_error
-        t_traj = np.arange(0, self.getParameter('tf'), self.getParameter('dt'))
         q_traj = []
         qdot_traj = []
         gains = []
@@ -513,6 +512,10 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
             self.printInfo()
 
         solo = loadSolo(False)
+
+        # Compute feet trajectory
+        t_traj, feet_traj, gains_traj = self.getParameter('feet_traj_func')(**self.getParameter('feet_traj_params'))
+        
 
         # Place the robot in a regular configuration
         solo.q0[2] = 0.
@@ -532,10 +535,10 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         # Reach the initial position first
         step = 0
         while True:
-            q, q_dot, gain, err = self.kinInv_3D(q, q_dot, solo, 0)
+            q, q_dot, err = self.kinInv_3D(q, q_dot, solo, feet_traj[0])
             if err<self.getParameter('max_init_error'):
                 break
-
+            
             step += 1
 
             if step>self.getParameter('max_init_iterations'):
@@ -545,12 +548,12 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         # Run the trajectory definition
         flag_errTooHigh = False
         maxE = 0
-        for t in t_traj:
-            q, q_dot, gain, err = self.kinInv_3D(q, q_dot, solo, t)
+        for i, t in enumerate(t_traj):
+            q, q_dot, err = self.kinInv_3D(q, q_dot, solo, feet_traj[i])
             
             q_traj.append(q)
             qdot_traj.append(q_dot)
-            gains.append(gain)
+            gains.append(gains_traj[i])
             
             if err>self.getParameter('max_kinv_error'):
                 flag_errTooHigh = True
@@ -585,9 +588,9 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         # Define trajectory for return
         traj = ActuatorsTrajectory()
         traj.addElement('t', t_traj)
-        traj.addElement('q', np.swapaxes(q_traj[:, 7:], 0, 1))
-        traj.addElement('q_dot', np.swapaxes(qdot_traj[:, 6:], 0, 1))
-        traj.addElement('gains', np.swapaxes(gains, 0, 1))
+        traj.addElement('q', q_traj[:, 7:])
+        traj.addElement('q_dot', qdot_traj[:, 6:])
+        traj.addElement('gains', gains)
 
         return traj
     
@@ -599,11 +602,9 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
     :param solo model of the robot
     :param t_simu current time
     """
-    def kinInv_3D(self, q, qdot, solo, t_simu):
+    def kinInv_3D(self, q, qdot, solo, feet_traj):
         from numpy.linalg import pinv
 
-        ftraj = self.getParameter('feet_traj_func') # function Defining feet traj
-        ftraj_kwargs = self.getParameter('feet_traj_params')
         K = self.getParameter('kinv_gain')  # Convergence gain
 
         # unactuated, [x, y, z] position of the base + [x, y, z, w] orientation of the base (stored as a quaternion)
@@ -635,10 +636,10 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         xyz_HR = solo.data.oMf[ID_HR].translation
 
         # Desired foot trajectory
-        xyzdes_FL = ftraj(t_simu, 0, **ftraj_kwargs)[0]
-        xyzdes_FR = ftraj(t_simu, 1, **ftraj_kwargs)[0]
-        xyzdes_HL = ftraj(t_simu, 2, **ftraj_kwargs)[0]
-        xyzdes_HR = ftraj(t_simu, 3, **ftraj_kwargs)[0]
+        xyzdes_FL = feet_traj[0]
+        xyzdes_FR = feet_traj[1]
+        xyzdes_HL = feet_traj[2]
+        xyzdes_HR = feet_traj[3]
 
         # Calculating the error
         err_FL = (xyz_FL - xyzdes_FL)
@@ -686,16 +687,24 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         qa_ref = self.q_ref[7:].reshape(12,1)
 
         # Return configuration of the robot
-        gains = ftraj(t_simu, 0, **ftraj_kwargs)[1]
         q_dot_ref = np.squeeze(np.array(q_dot_ref))
         err = np.linalg.norm(nu)
 
-        return self.q_ref, q_dot_ref, gains, err
+        return self.q_ref, q_dot_ref, err
 
-    def trajFeet_jump1(self, t, footId, **kwargs):
+    def trajFeet_jump1(self, **kwargs):
+        from scipy.interpolate import CubicSpline
+        from matplotlib import pyplot as plt
+
         t0 = kwargs.get("traj_t0", 0.2)  # Duration of initialisation step
         t1 = kwargs.get("traj_t1", 0.25)  # Duration of first step (extension of legs)
         t2 = kwargs.get("traj_t2", 0.15)  # Duration of second step (spreading legs)
+
+        # Initialization of the variables
+        traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
+        traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
+        traj_z0 = kwargs.get("traj_z0", -0.05) # initial distance on the z axis from body
+        traj_zf = kwargs.get("traj_zf", -0.25) # initial distance on the z axis from body
 
         dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
         dy = kwargs.get("traj_dy", 0.05)  # displacement amplitude by y
@@ -707,64 +716,53 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         param_kps = kwargs.get("kps", [param_kp, param_kp]) # default parameter of kps
         param_kds = kwargs.get("kds", [param_kp, param_kd]) # default parameter of kds
 
-        # Initialization of the variables
-        traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
-        traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
-        traj_z0 = kwargs.get("traj_z0", -0.05) # initial distance on the z axis from body
-        traj_zf = kwargs.get("traj_zf", -0.25) # initial distance on the z axis from body
 
-        if traj_z0>=0 or traj_zf>=0:
-            print("traj_z0 or traj_zf might be positive. This may lead to invalid configuration.")
+        # Definition of the feet trajectory
+        times = [0, t0, t0+t1, t0+t1+t2, t0+t1+t2 if self.getParameter('tf')<t0+t1+t2 else self.getParameter('tf')]
 
-        x0 = -traj_x0 if int(footId/2)%2 else traj_x0
-        y0 = -traj_y0 if footId%2 else traj_y0
+        x_pos = [traj_x0, traj_x0, traj_x0, traj_x0+dx, traj_x0+dx]
+        y_pos = [traj_y0, traj_y0, traj_y0, traj_y0+dy, traj_y0+dy]
+        z_pos = [traj_z0, traj_z0-dz, traj_zf, traj_z0, traj_z0]
+        kp_pos = [param_kps[0], param_kps[1], param_kps[1], param_kps[0], param_kps[0]]
+        kd_pos = [param_kds[0], param_kds[1], param_kds[1], param_kds[0], param_kds[0]]
 
-        x, y, z = 0, 0, 0
-        gains = [0, 0]
+        time = []
+        x_feet = []
+        y_feet = []
+        z_feet = []
+        kp_feet = []
+        kd_feet = []
 
-        # If time is overlapping the duration of the sequence, stay in last position
-        if t>t0+t1+t2:
-            t=t0+t1+t2
+        for i in range(len(times)-1):
+            t = np.arange(times[i], times[i+1], self.getParameter('dt'))
+            cur_times = [times[i], times[i+1]]
 
-        # First part of the jump, push while staying at same position
-        if t < t0:
-            z = traj_z0-dz/2*np.cos(np.pi/2 * t/t0)
+            cs_x = CubicSpline(cur_times, [x_pos[i], x_pos[i+1]], bc_type='clamped')  
+            cs_y = CubicSpline(cur_times, [y_pos[i], y_pos[i+1]], bc_type='clamped')  
+            cs_z = CubicSpline(cur_times, [z_pos[i], z_pos[i+1]], bc_type='clamped') 
+            cs_kp = CubicSpline(cur_times, [kp_pos[i], kp_pos[i+1]], bc_type='clamped')
+            cs_kd = CubicSpline(cur_times, [kd_pos[i], kd_pos[i+1]], bc_type='clamped')
 
-            x = x0
-            y = y0
+            time = np.concatenate((time, t))
+            x_feet = np.concatenate((x_feet, cs_x(t)))
+            y_feet = np.concatenate((y_feet, cs_y(t)))
+            z_feet = np.concatenate((z_feet, cs_z(t)))
+            kp_feet = np.concatenate((kp_feet, cs_kp(t)))
+            kd_feet = np.concatenate((kd_feet, cs_kd(t)))
 
-            gains[0] = 10
-            gains[1] = 5
-        # Second part of the jump, push while staying at same position
-        elif t < t0+t1:
-            t = t-t0
-            z = traj_z0-dz*np.sin(np.pi/2 * t/t1)
+        foot_FL = np.array([+x_feet, +y_feet, z_feet])
+        foot_FR = np.array([+x_feet, -y_feet, z_feet])
+        foot_HL = np.array([-x_feet, +y_feet, z_feet])
+        foot_HR = np.array([-x_feet, -y_feet, z_feet])
 
-            x = x0
-            y = y0
+        feet_traj = np.array([foot_FL, foot_FR, foot_HL, foot_HR])
+        feet_traj = np.swapaxes(feet_traj, 0, 2)
+        feet_traj = np.swapaxes(feet_traj, 1, 2)
 
-            gains[0] = param_kps[0]
-            gains[1] = param_kds[0]
-        # Third part of the jump, extend feet and retract legs
-        elif t <= t0+t1+t2:
-            t = t-(t0+t1)
+        gains = np.array([kp_feet, kd_feet])
+        gains = np.swapaxes(gains, 0, 1)
 
-            if x0>0:
-                x = x0 + dx * np.sin(np.pi/2 * t/t2)
-            else:
-                x = x0 - dx * np.sin(np.pi/2 * t/t2)
-
-            if y0>0:
-                y = y0 + dy * np.sin(np.pi/2 * t/t2)
-            else:
-                y = y0 - dy * np.sin(np.pi/2 * t/t2)
-            
-            z = traj_zf + (-traj_zf+traj_z0-dz)*np.sin(np.pi/2 *(1 - t/t2))
-
-            gains[0] = param_kps[1]
-            gains[1] = param_kds[1]
-
-        return np.array([x, y, z]), gains
+        return time, feet_traj, gains
 
 
 """
@@ -817,21 +815,21 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 
         # Initalize trajectories
         N_simu = 20000
-        q      = np.zeros((tsid.solo12_wrapper.nq, N_simu + 1))
-        v      = np.zeros((tsid.solo12_wrapper.nv, N_simu + 1))
-        dv     = np.zeros((tsid.solo12_wrapper.nv, N_simu + 1))
-        tau    = np.zeros((tsid.solo12_wrapper.na, N_simu + 1))
-        gains  = np.zeros((2,N_simu+1))
+        q      = np.zeros((N_simu + 1, tsid.solo12_wrapper.nq))
+        v      = np.zeros((N_simu + 1, tsid.solo12_wrapper.nv))
+        dv     = np.zeros((N_simu + 1, tsid.solo12_wrapper.nv))
+        tau    = np.zeros((N_simu + 1, tsid.solo12_wrapper.na))
+        gains  = np.zeros((N_simu+1, 2))
         t_traj = np.arange(0, N_simu+1)*self.getParameter('dt')
 
         # Launch simu
         t = 0.0
         t_traj[0] = t
-        q[:, 0], v[:, 0] = tsid.q0, tsid.v0
-        gains[:,0] = np.array([param_kp, param_kd])
+        q[0, :], v[0, :] = tsid.q0, tsid.v0
+        gains[0, :] = np.array([param_kp, param_kd])
 
         for i in range(N_simu-2):
-            HQPData = tsid.formulation.computeProblemData(t, q[:,i], v[:,i])
+            HQPData = tsid.formulation.computeProblemData(t, q[i, :], v[i, :])
             sol = tsid.solver.solve(HQPData)
             
             com = tsid.getCOM()
@@ -847,24 +845,24 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
                 print("Time {0:0.3f} QP problem could not be solved! Error code: {1}".format(t, sol.status))
                 break
             
-            tau[:,i] = tsid.formulation.getActuatorForces(sol)
-            dv[:,i] = tsid.formulation.getAccelerations(sol)
+            tau[i, :] = tsid.formulation.getActuatorForces(sol)
+            dv[i, :] =  tsid.formulation.getAccelerations(sol)
             
             # Numerical integration
-            q[:,i + 1], v[:,i + 1] = tsid.integrate_dv(q[:,i], v[:,i], dv[:,i], dt)
+            q[i+1, :], v[i+1, :] = tsid.integrate_dv(q[i,:], v[i,:], dv[i,:], dt)
             t += dt
             
             # Set the gains
-            gains[:,i+1] = np.array([param_kd, param_kp])
+            gains[i+1,:] = np.array([param_kd, param_kp])
             
             if self.getParameter('gepetto_viewer'):
-                solo12.display(q[:,i])
+                solo12.display(q[i,:])
                 time.sleep(1e-3)
         
         for j in range(i+1,N_simu):
-            q[:,j], v[:,j] = tsid.q0, tsid.v0
-            gains[:,j] = np.array([param_kd, param_kp])
-            tau[:,j] = np.zeros(tsid.solo12_wrapper.na) 
+            q[j,:], v[j,:] = tsid.q0, tsid.v0
+            gains[j,:] = np.array([param_kd, param_kp])
+            tau[j,:] = np.zeros(tsid.solo12_wrapper.na) 
             
             
 
@@ -875,8 +873,8 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
         # Define trajectory for return
         traj = ActuatorsTrajectory()
         traj.addElement('t', t_traj)
-        traj.addElement('q', q[7:,:])
-        traj.addElement('q_dot', v[6:,:])
+        traj.addElement('q', q[:, 7:])
+        traj.addElement('q_dot', v[:, 6:])
         traj.addElement('gains', gains)
         traj.addElement('torques', tau)
 
