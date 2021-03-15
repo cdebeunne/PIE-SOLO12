@@ -364,9 +364,9 @@ class TrajectoryGen_Splines(TrajectoryGenerator):
 
         # Defining default parameters of the trajectory
         self.parametersDefaults['q_start'] = np.zeros(12)
-        self.parametersDefaults['t_crouch'] = 1
-        self.parametersDefaults['t_jump'] = 2
-        self.parametersDefaults['t_air'] = 3
+        self.parametersDefaults['t_crouch'] = 3
+        self.parametersDefaults['t_jump'] = 6
+        self.parametersDefaults['t_air'] = 9
         self.parametersDefaults['dt'] = 0.05
     
     def generateTrajectory(self, **kwargs):
@@ -695,26 +695,24 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
     def trajFeet_jump1(self, **kwargs):
         from scipy.interpolate import CubicSpline
         from matplotlib import pyplot as plt
-
-        t0 = kwargs.get("traj_t0", 0.2)  # Duration of initialisation step
+        
+        t0 = kwargs.get("traj_t0", 1)  # Duration of initialisation step
         t1 = kwargs.get("traj_t1", 0.25)  # Duration of first step (extension of legs)
         t2 = kwargs.get("traj_t2", 0.15)  # Duration of second step (spreading legs)
 
         # Initialization of the variables
-        traj_x0 = 0.190 + kwargs.get("traj_dx0", 0) # initial distance on the x axis from strait
+        traj_x0 = 0.190 + kwargs.get("traj_dx0", 0.05) # initial distance on the x axis from strait
         traj_y0 = 0.147 + kwargs.get("traj_dy0", 0) # initial distance on the y axis from strait
-        traj_z0 = kwargs.get("traj_z0", -0.05) # initial distance on the z axis from body
-        traj_zf = kwargs.get("traj_zf", -0.25) # initial distance on the z axis from body
+        traj_z0 = kwargs.get("traj_z0", -0.25) # initial distance on the z axis from body
+        traj_zf = kwargs.get("traj_zf", -0.2) # initial distance on the z axis from body
 
-        dz = kwargs.get("traj_dz", 0.25)  # displacement amplitude by z
+        dz = kwargs.get("traj_dz", -0.2)  # displacement amplitude by z
         dy = kwargs.get("traj_dy", 0.05)  # displacement amplitude by y
         dx = kwargs.get("traj_dx", dy)    # displacement amplitude by x
 
         # Gains parameters
-        param_kp = kwargs.get("kp", 10) # default parameter of kp
-        param_kd = kwargs.get("kd", 0.1)    # default parameter of kd
-        param_kps = kwargs.get("kps", [param_kp, param_kp]) # default parameter of kps
-        param_kds = kwargs.get("kds", [param_kp, param_kd]) # default parameter of kds
+        param_kps = kwargs.get("kps", [1.5, 1.5]) # default parameter of kps
+        param_kds = kwargs.get("kds", [0.05, 0.05]) # default parameter of kds
 
 
         # Definition of the feet trajectory
@@ -722,7 +720,7 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
 
         x_pos = [traj_x0, traj_x0, traj_x0, traj_x0+dx, traj_x0+dx]
         y_pos = [traj_y0, traj_y0, traj_y0, traj_y0+dy, traj_y0+dy]
-        z_pos = [traj_z0, traj_z0-dz, traj_zf, traj_z0, traj_z0]
+        z_pos = [traj_z0, traj_z0-dz, traj_z0, traj_zf, traj_zf]
         kp_pos = [param_kps[0], param_kps[1], param_kps[1], param_kps[0], param_kps[0]]
         kd_pos = [param_kds[0], param_kds[1], param_kds[1], param_kds[0], param_kds[0]]
 
@@ -740,8 +738,8 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
             cs_x = CubicSpline(cur_times, [x_pos[i], x_pos[i+1]], bc_type='clamped')  
             cs_y = CubicSpline(cur_times, [y_pos[i], y_pos[i+1]], bc_type='clamped')  
             cs_z = CubicSpline(cur_times, [z_pos[i], z_pos[i+1]], bc_type='clamped') 
-            cs_kp = CubicSpline(cur_times, [kp_pos[i], kp_pos[i+1]], bc_type='clamped')
-            cs_kd = CubicSpline(cur_times, [kd_pos[i], kd_pos[i+1]], bc_type='clamped')
+            cs_kp = CubicSpline(cur_times, [kp_pos[i], kp_pos[i]], bc_type='clamped')
+            cs_kd = CubicSpline(cur_times, [kd_pos[i], kd_pos[i]], bc_type='clamped')
 
             time = np.concatenate((time, t))
             x_feet = np.concatenate((x_feet, cs_x(t)))
@@ -762,6 +760,15 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         gains = np.array([kp_feet, kd_feet])
         gains = np.swapaxes(gains, 0, 1)
 
+        """
+        plt.plot(foot_FL[0, :], label='x')
+        plt.plot(foot_FL[1, :], label='y')
+        plt.plot(foot_FL[2, :], label='z')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+        """
+
         return time, feet_traj, gains
 
 
@@ -776,9 +783,10 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
 
         # Defining default parameters of the trajectory
         self.parametersDefaults['dt'] = 1e-4
-        self.parametersDefaults['kp'] = 5
-        self.parametersDefaults['kd'] = 1
-        self.parametersDefaults['verticalVelocity'] = 0.1
+        self.parametersDefaults['kp'] = 1.5
+        self.parametersDefaults['kd'] = 0.1
+        self.parametersDefaults['verticalVelocity'] = 0.01
+        self.parametersDefaults['N_simu'] = int(0.2/self.getParameter('dt'))
 
         self.parametersDefaults['debug'] = True
         self.parametersDefaults['gepetto_viewer'] = False
@@ -793,6 +801,7 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
         param_kp = self.getParameter('kp')
         param_kd = self.getParameter('kd')
         param_vertVel = self.getParameter('verticalVelocity')
+        N_simu = self.getParameter('N_simu')
         
         t0 = time.time()
         
@@ -807,14 +816,13 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
             
         # Initialize TSID
         tsid = SoloTSID()
-        tsid.setCOMRef(np.array([0.0,0.0,-0.05]).T, np.zeros(3), np.zeros(3))
+        tsid.setCOMRef(np.array([0.0,0.0,-0.1]).T, np.zeros(3), np.zeros(3))
         tsid.setBaseRef()
 
-        comObj1 = tsid.getCOM()+np.array([0.0,0.0,-0.05]).T
+        comObj1 = tsid.getCOM()+np.array([0.0,0.0,-0.1]).T
         comObj2 = tsid.getCOM()+np.array([0.0,0.0,0.09]).T
 
         # Initalize trajectories
-        N_simu = 20000
         q      = np.zeros((N_simu + 1, tsid.solo12_wrapper.nq))
         v      = np.zeros((N_simu + 1, tsid.solo12_wrapper.nv))
         dv     = np.zeros((N_simu + 1, tsid.solo12_wrapper.nv))
@@ -859,12 +867,9 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
                 solo12.display(q[i,:])
                 time.sleep(1e-3)
         
-        for j in range(i+1,N_simu):
-            q[j,:], v[j,:] = tsid.q0, tsid.v0
-            gains[j,:] = np.array([param_kd, param_kp])
-            tau[j,:] = np.zeros(tsid.solo12_wrapper.na) 
-            
-            
+        q[i+1,:], v[i+1,:] = tsid.q0, tsid.v0
+        gains[i+1,:] = np.array([param_kd, param_kp])
+        tau[i+1,:] = np.zeros(tsid.solo12_wrapper.na) 
 
         # Print execution time if requiered
         if self.getParameter('debug'):
@@ -872,11 +877,11 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
         
         # Define trajectory for return
         traj = ActuatorsTrajectory()
-        traj.addElement('t', t_traj)
-        traj.addElement('q', q[:, 7:])
-        traj.addElement('q_dot', v[:, 6:])
-        traj.addElement('gains', gains)
-        traj.addElement('torques', tau)
+        traj.addElement('t', t_traj[:i+1])
+        traj.addElement('q', q[:i+1, 7:])
+        traj.addElement('q_dot', v[:i+1, 6:])
+        traj.addElement('gains', gains[:i+1, :])
+        traj.addElement('torques', tau[:i+1, :])
 
         return traj
 
