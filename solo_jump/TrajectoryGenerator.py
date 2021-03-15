@@ -760,14 +760,14 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         gains = np.array([kp_feet, kd_feet])
         gains = np.swapaxes(gains, 0, 1)
 
-        """
+        
         plt.plot(foot_FL[0, :], label='x')
         plt.plot(foot_FL[1, :], label='y')
         plt.plot(foot_FL[2, :], label='z')
         plt.grid(True)
         plt.legend()
         plt.show()
-        """
+        
 
         return time, feet_traj, gains
 

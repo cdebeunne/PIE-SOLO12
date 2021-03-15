@@ -61,8 +61,8 @@ class Controller:
 		torques_sat = 3 #self.default_parameters['torques_sat']
 
 		# Output torques
-		Kp = gains[0]
-		Kd = gains[1]
+		Kp = gains[0]*10
+		Kd = gains[1]*10
 		torques = Kp*(qa_ref - qa) + Kd*(qa_dot_ref - qa_dot) + torques_ff
 
 		# Saturation to limit the maximal value that torques can have
@@ -75,7 +75,7 @@ class Controller:
 			for i in range(len(qa_ref)):
 				print("| j={0:2d} | ref={1:+3.2f} | cur={2:+3.2f} | tor={3:+3.2f} |".format(i, qa_ref[i][0],qa[i][0], torques[i][0]) )
 			print("+------+-----------+-----------+-----------+\n")
-			# print(objective)
+			print(objective)
 
 		return torques
 	

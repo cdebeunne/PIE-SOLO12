@@ -25,21 +25,12 @@ simulator = SoloSimulation(enableGUI=True, enableGravity=True)
 # TRAJECTORY #
 ##############
 
-kwargs_traj = {"t_crouch":1, "t_jump":1.2, "t_air":2, "dt":0.05}
-
-# Compute Joint Trajectory
-traj_gen = TrajectoryGen_Splines()
-traj_gen.setParametersFromDict(**kwargs_traj)
-actuators_traj = traj_gen.generateTrajectory()
-
-actuators_traj.saveTrajectory("/tmp/traj.npz")
+actuators_traj = ActuatorsTrajectory()
+actuators_traj.loadTrajectory("traj_1.npz", verbose=True)
 
 ###############
 #  CONTROLLER #
 ###############
-
-actuators_traj = ActuatorsTrajectory()
-actuators_traj.loadTrajectory("traj.npz", verbose=True)
 
 control = Controller_Traj(actuators_traj)
 control.debug = True
@@ -97,7 +88,8 @@ if key is not "Y":
 # Following the trajectory
 control.initialize(simulator.simulation_time)
 
-while not control.ended:
+# control.debugPD = True
+while True:
     q, qdot = simulator.get_state()
     qa, qadot = simulator.get_state_a()
 
@@ -112,4 +104,4 @@ while not control.ended:
 secu.show_results(show_all=True)
 
 # Delete temporary traj file
-os.remove("/tmp/traj.npz")
+# os.remove("/tmp/traj.npz")
