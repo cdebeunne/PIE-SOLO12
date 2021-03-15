@@ -6,7 +6,7 @@ import numpy as np
 import time
 
 # Create a instance of trajectory generator
-traj_gen = TrajectoryGen_InvKin()
+traj_gen = TrajectoryGen_TSID()
 
 # Set a parameter of the generator
 kwargs_trajec = {"traj_dx0":0, "traj_dx":0, "traj_dy":0, "traj_t0":1, "traj_t1":0.25, "traj_t2":0.2, "traj_z0":-0.25, "traj_dz":-0.20, "traj_zf":-0.22, "kps":[1.5, 2], "kds":[0.05, 0.06]}

@@ -26,7 +26,7 @@ simulator = SoloSimulation(enableGUI=True, enableGravity=True)
 ##############
 
 actuators_traj = ActuatorsTrajectory()
-actuators_traj.loadTrajectory("traj_3.npz", verbose=True)
+actuators_traj.loadTrajectory("traj_4.npz", verbose=True)
 
 ###############
 #  CONTROLLER #

@@ -861,14 +861,14 @@ class TrajectoryGen_TSID(TrajectoryGenerator):
             t += dt
             
             # Set the gains
-            gains[i+1,:] = np.array([param_kd, param_kp])
+            gains[i+1,:] = np.array([param_kp, param_kd])
             
             if self.getParameter('gepetto_viewer'):
                 solo12.display(q[i,:])
                 time.sleep(1e-3)
         
         q[i+1,:], v[i+1,:] = tsid.q0, tsid.v0
-        gains[i+1,:] = np.array([param_kd, param_kp])
+        gains[i+1,:] = np.array([param_kp, param_kd])
         tau[i+1,:] = np.zeros(tsid.solo12_wrapper.na) 
 
         # Print execution time if requiered
