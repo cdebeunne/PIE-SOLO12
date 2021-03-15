@@ -721,8 +721,8 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
         x_pos = [traj_x0, traj_x0, traj_x0, traj_x0+dx, traj_x0+dx]
         y_pos = [traj_y0, traj_y0, traj_y0, traj_y0+dy, traj_y0+dy]
         z_pos = [traj_z0, traj_z0-dz, traj_z0, traj_zf, traj_zf]
-        kp_pos = [param_kps[0], param_kps[1], param_kps[1], param_kps[0], param_kps[0]]
-        kd_pos = [param_kds[0], param_kds[1], param_kds[1], param_kds[0], param_kds[0]]
+        kp_pos = [param_kps[1], param_kps[1], param_kps[1], param_kps[0], param_kps[0]]
+        kd_pos = [param_kds[1], param_kds[1], param_kds[1], param_kds[0], param_kds[0]]
 
         time = []
         x_feet = []
