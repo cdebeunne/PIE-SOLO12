@@ -12,10 +12,13 @@ import pybullet as p  # PyBullet simulator
 from solo_jump.TrajectoryGenerator import ActuatorsTrajectory, TrajectoryGen_Splines
 from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
+from solo_jump.Logger import Logger
 from solo_pybullet.SoloSimulation import SoloSimulation
 
-PRESS_KEY = False
-name_traj = "trajectories/traj_6.npz"
+LOG = True         # Log everything of the trajectory
+PRESS_KEY = False   # Press a key to pass throught steps
+SECURITY = False    # Run security checking
+name_traj = "trajectories/traj_7.npz"
 
 print("Running trajectory named:", name_traj)
 
@@ -24,7 +27,7 @@ print("Running trajectory named:", name_traj)
 ####################
 
 # MatplotLib must be imported after Pybullet as been initialized in order to solve conflicts.
-simulator = SoloSimulation(enableGUI=True, enableGravity=True)
+simulator = SoloSimulation(enableGUI=False, enableGravity=True)
 
 ##############
 # TRAJECTORY #
@@ -39,6 +42,12 @@ actuators_traj.loadTrajectory(name_traj, verbose=True)
 
 control = Controller_Traj(actuators_traj)
 control.debug = False
+
+############
+#  LOGGER  #
+############
+
+logger = Logger()
 
 ##############
 #  SECURITY  #
@@ -95,18 +104,48 @@ if PRESS_KEY:
 print("Following trajectory.")
 
 # Following the trajectory
+offset_time = simulator.simulation_time
 control.initialize(simulator.simulation_time)
 
-while not control.ended:
+while not control.ended or not simulator.is_stop():
     q, qdot = simulator.get_state()
     qa, qadot = simulator.get_state_a()
+    t = simulator.simulation_time
 
-    jointTorques = control.get_torques(qa, qadot, t=simulator.simulation_time)
+    jointTorques = control.get_torques(qa, qadot, t=t)
 
-    secu.check_integrity(q, qdot, jointTorques)
+    if LOG:
+        logger.add_data(simulator.simulation_time,
+                        q, qdot,
+                        actuators_traj.getElementAtTime('q', t-offset_time),
+                        actuators_traj.getElementAtTime('q_dot', t-offset_time),
+                        actuators_traj.getElementAtTime('torques', t-offset_time),
+                        jointTorques,
+                        actuators_traj.getElementAtTime('gains', t-offset_time))
+
+    if SECURITY:
+        secu.check_integrity(q, qdot, jointTorques)
 
     simulator.set_joint_torques(jointTorques)
     simulator.step()
 
-# Print out security results
-secu.show_results(show_all=True)
+simulator.end()
+logger.end()
+
+############
+#  RESULTS #
+############
+
+if SECURITY:
+    # Print out security results
+    secu.show_results(show_all=True)
+
+if LOG:
+    import matplotlib.pyplot as plt
+
+    plt.plot(logger.t, logger.q[:, 2])
+    plt.title("Evolution of CG z")
+    plt.grid()
+    plt.show()
+
+    logger.plot_leg()

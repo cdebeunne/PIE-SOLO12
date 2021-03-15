@@ -716,7 +716,8 @@ class TrajectoryGen_InvKin(TrajectoryGenerator):
 
 
         # Definition of the feet trajectory
-        times = [0, t0, t0+t1, t0+t1+t2, t0+t1+t2 if self.getParameter('tf')<t0+t1+t2 else self.getParameter('tf')]
+        self.setParameter('tf', t0+t1+t2*2)
+        times = [0, t0, t0+t1, t0+t1+t2, self.getParameter('tf')]
 
         x_pos = [traj_x0, traj_x0, traj_x0, traj_x0+dx, traj_x0+dx]
         y_pos = [traj_y0, traj_y0, traj_y0, traj_y0+dy, traj_y0+dy]

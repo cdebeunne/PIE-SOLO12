@@ -59,6 +59,9 @@ class SoloSimulation:
         # Compute one step of simulation for initialization
         p.stepSimulation()
 
+        # Last state
+        self.last_state = self.get_q()
+
         self.simulation_time = 0
     
     """
@@ -75,6 +78,8 @@ class SoloSimulation:
     Does one step of smulation with tempo if asked.
     """
     def step(self):
+        self.last_state = self.get_q()
+        
         p.stepSimulation()
         self.simulation_time += self.dt
 
@@ -96,6 +101,12 @@ class SoloSimulation:
     def is_on_ground(self):
         contacts = p.getContactPoints()
         return len(contacts) != 0
+
+    """
+    Returns true if the robot is not moving.
+    """
+    def is_stop(self, thresh=0.1):
+        return np.linalg.norm(self.get_qdot()) < thresh
 
     """
     Returns q
