@@ -14,9 +14,6 @@ v_traj = data['q_dot']
 kp_traj = data['gains'][:, 0]
 kd_traj = data['gains'][:, 1]
 
-Kp = 0*0.1
-Kd = 0*0.01
-
 key_pressed = False
 
 def get_input():
@@ -77,8 +74,8 @@ def example_script(name_interface):
         q_ref = q_traj[i_traj]
         v_ref = v_traj[i_traj]
         ff_ref = 0
-        # Kp = kp_traj[i_traj]
-        # Kd = kd_traj[i_traj]
+        Kp = kp_traj[i_traj]
+        Kd = kd_traj[i_traj]
 
         """
         # Compute torque

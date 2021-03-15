@@ -19,8 +19,6 @@ class Controller:
 		# Print informations if true
 		self.debug = False
 		self.debugPD = False
-
-		self.torques_save = []
 	
 	"""
 	Returns torques to 0.
@@ -78,8 +76,6 @@ class Controller:
 				print("| j={0:2d} | ref={1:+3.2f} | cur={2:+3.2f} | tor={3:+3.2f} |".format(i, qa_ref[i][0],qa[i][0], torques[i][0]) )
 			print("+------+-----------+-----------+-----------+\n")
 			print(objective)
-
-		self.torques_save.append(torques)
 
 		return torques
 	

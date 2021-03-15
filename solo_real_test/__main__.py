@@ -14,6 +14,11 @@ from solo_jump.Controller import Controller_Traj
 from solo_jump.SecurityChecker import SecurityChecker
 from solo_pybullet.SoloSimulation import SoloSimulation
 
+PRESS_KEY = False
+name_traj = "trajectories/traj_6.npz"
+
+print("Running trajectory named:", name_traj)
+
 ####################
 #  INITIALIZATION  #
 ####################
@@ -26,7 +31,7 @@ simulator = SoloSimulation(enableGUI=True, enableGravity=True)
 ##############
 
 actuators_traj = ActuatorsTrajectory()
-actuators_traj.loadTrajectory("traj_4.npz", verbose=True)
+actuators_traj.loadTrajectory(name_traj, verbose=True)
 
 ###############
 #  CONTROLLER #
@@ -40,7 +45,7 @@ control.debug = False
 ##############
 
 secu = SecurityChecker()
-secu.verbose = True
+secu.verbose = False
 
 ##############
 #  MAIN LOOP #
@@ -48,18 +53,19 @@ secu.verbose = True
 
 # Ask if ready
 print("Ready to rock !")
-print("Do you wanna rock ? [Y] to continue, [n] to abort")
-key = input()
+if PRESS_KEY:
+    print("Do you wanna rock ? [Y] to continue, [n] to abort")
+    key = input()
 
-if key is not "Y":
-    print("Aborting le bateau")
-    exit()
+    if key is not "Y":
+        print("Aborting le bateau")
+        exit()
 
-# Initialisation of the trajectory
-print("\n")
+    # Initialisation of the trajectory
+    print("\n")
 print("Going to the first position of the trajectory.")
 
-# Reache first state
+# Reaching first state
 reached_init = False
 on_ground = False
 
@@ -77,19 +83,21 @@ while not reached_init or not on_ground:
     simulator.set_joint_torques(jointTorques)
     simulator.step()
 
+# Reached first position
 print("Reached first position.")
-print("Do you wanna continue ? [Y] to continue, [n] to abort")
-key = input()
+if PRESS_KEY:
+    print("Do you wanna continue ? [Y] to continue, [n] to abort")
+    key = input()
 
-if key is not "Y":
-    print("Aborting le bateau")
-    exit()
+    if key is not "Y":
+        print("Aborting le bateau")
+        exit()
+print("Following trajectory.")
 
 # Following the trajectory
 control.initialize(simulator.simulation_time)
 
-# control.debugPD = True
-while True:
+while not control.ended:
     q, qdot = simulator.get_state()
     qa, qadot = simulator.get_state_a()
 
@@ -102,6 +110,3 @@ while True:
 
 # Print out security results
 secu.show_results(show_all=True)
-
-# Delete temporary traj file
-# os.remove("/tmp/traj.npz")

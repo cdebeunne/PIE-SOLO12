@@ -19,7 +19,7 @@ class Solo12(RobotHAL):
         # To get this offsets, run the calibration with self.encoderOffsets at 0,
         # then manualy move the robot in zero config, and paste the position here (note the negative sign!)
 
-
+        # OUTDATED
         self.encoderOffsets = - np.array([  -1.7339484691619873,
                                             0.590497612953186,
                                             3.768724203109741,
