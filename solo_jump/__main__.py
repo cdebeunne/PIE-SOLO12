@@ -9,7 +9,7 @@ import time
 traj_gen = TrajectoryGen_InvKin()
 
 # Set a parameter of the generator
-kwargs_trajec = {"traj_dx0":0, "traj_dx":0, "traj_dy":0, "traj_t0":1.5, "traj_t1":0.25, "traj_t2":0.2, "traj_z0":-0.31, "traj_dz":-0.18, "traj_zf":-0.25, "kps":[1.5, 4], "kds":[0.05, 0.1]}
+kwargs_trajec = {"traj_dx0":0, "traj_dx":0, "traj_dy":0, "traj_t0":1.5, "traj_t1":0.2, "traj_t2":0.2, "traj_z0":-0.31, "traj_dz":-0.18, "traj_zf":-0.25, "kps":[1.5, 4], "kds":[0.05, 0.1]}
 traj_gen.setParameter('feet_traj_params', kwargs_trajec)
 
 # Set multiple parameter of the genetor
@@ -23,7 +23,7 @@ traj_gen.printInfo()
 traj = traj_gen.generateTrajectory()
 
 # Save the trajectory
-traj.saveTrajectory('traj_5.npz')
+traj.saveTrajectory('traj_6.npz')
 
 # Plot the trajectory
 traj.plotTrajectory(show_gains=True, show_all=True)
